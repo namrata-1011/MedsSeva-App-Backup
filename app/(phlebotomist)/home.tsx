@@ -105,7 +105,26 @@ export default function PhlebotomistHomeScreen() {
       });
 
       setRequests(combinedPending);
-      setStats(statsRes || { todayJobs: 0, pending: 0, accepted: 0, completedToday: 0, completedPercent: 0 });
+
+      const liveTodayJobs = (statsRes?.todayJobs && statsRes.todayJobs > 0)
+        ? statsRes.todayJobs
+        : assignedList.length;
+
+      const liveDelivered = (statsRes?.completedToday && statsRes.completedToday > 0)
+        ? statsRes.completedToday
+        : assignedList.filter((b: any) => ['DELIVERED_TO_LAB', 'PROCESSING', 'REPORT_READY', 'COMPLETED'].includes(b.status)).length;
+
+      const livePending = (statsRes?.pending !== undefined && statsRes.pending > 0)
+        ? statsRes.pending
+        : (assignedList.filter((b: any) => ['ASSIGNED', 'WAITING_FOR_PARTNER', 'ACCEPTED', 'ON_THE_WAY', 'REACHED_LOCATION', 'SAMPLE_COLLECTED', 'DELIVERING_TO_BRANCH', 'PENDING'].includes(b.status)).length + combinedPending.length);
+
+      setStats({
+        todayJobs: liveTodayJobs,
+        pending: livePending,
+        accepted: statsRes?.accepted || assignedList.filter((b: any) => ['ACCEPTED', 'ON_THE_WAY', 'REACHED_LOCATION'].includes(b.status)).length,
+        completedToday: liveDelivered,
+        completedPercent: liveTodayJobs > 0 ? Math.round((liveDelivered / liveTodayJobs) * 100) : 0,
+      });
     } catch (e) {
       console.error('Failed to load phlebotomist home data', e);
     } finally {
