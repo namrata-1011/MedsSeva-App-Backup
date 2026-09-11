@@ -249,7 +249,7 @@ export default function PhlebotomistHomeScreen() {
                   <Text style={styles.metricLabel}>{isFreelancer ? 'Total Pickups' : 'Assigned'}</Text>
                 </View>
                 <View style={styles.metricBox}>
-                  <Text style={[styles.metricValue, { color: '#D97706' }]}>{requests.length}</Text>
+                  <Text style={[styles.metricValue, { color: '#D97706' }]}>{stats.pending !== undefined ? stats.pending : requests.length}</Text>
                   <Text style={styles.metricLabel}>Pending</Text>
                 </View>
                 <View style={styles.metricBox}>
