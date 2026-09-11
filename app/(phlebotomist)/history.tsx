@@ -30,13 +30,36 @@ export default function PhlebotomistHistoryScreen() {
 
   const loadHistory = useCallback(async () => {
     try {
-      const data = await apiService.getPartnerHistory().catch(async () => {
-        const all = await apiService.getPartnerBookings().catch(() => []);
-        return Array.isArray(all)
-          ? all.filter((b: any) => ['DELIVERED_TO_LAB', 'PROCESSING', 'REPORT_READY', 'COMPLETED'].includes(b.status))
-          : [];
+      const [historyRes, bookingsRes] = await Promise.all([
+        apiService.getPartnerHistory().catch(() => []),
+        apiService.getPartnerBookings().catch(() => []),
+      ]);
+
+      const historyList = Array.isArray(historyRes) ? historyRes : [];
+      const bookingsList = Array.isArray(bookingsRes) ? bookingsRes : [];
+
+      const seen = new Set<string>();
+      const deliveredItems: HistoryItem[] = [];
+
+      historyList.forEach((b: any) => {
+        if (!b.isRejected && ['DELIVERED_TO_LAB', 'PROCESSING', 'REPORT_READY', 'COMPLETED'].includes(b.status)) {
+          if (!seen.has(b.id)) {
+            seen.add(b.id);
+            deliveredItems.push(b);
+          }
+        }
       });
-      setHistory(Array.isArray(data) ? data : []);
+
+      bookingsList.forEach((b: any) => {
+        if (['DELIVERED_TO_LAB', 'PROCESSING', 'REPORT_READY', 'COMPLETED'].includes(b.status)) {
+          if (!seen.has(b.id)) {
+            seen.add(b.id);
+            deliveredItems.push(b);
+          }
+        }
+      });
+
+      setHistory(deliveredItems);
     } catch {
       setHistory([]);
     } finally {
