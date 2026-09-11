@@ -113,7 +113,7 @@ export default function DoctorNewSampleScreen() {
         });
         showSuccess('Direct sample handover logged. Sample marked as delivered to lab.');
       }
-      router.replace('/(doctor)/home');
+      router.navigate('/(doctor)/home');
     } catch (err: any) {
       console.error('Submission failed', err);
       showError(err?.response?.data?.error || 'Failed to submit test request');
@@ -123,8 +123,8 @@ export default function DoctorNewSampleScreen() {
   };
 
   const filteredTests = availableTests.filter(t =>
-    t.name?.toLowerCase().includes(testSearch.toLowerCase()) ||
-    t.code?.toLowerCase().includes(testSearch.toLowerCase())
+    (t.name?.toLowerCase() || '').includes(testSearch.toLowerCase()) ||
+    (t.code?.toLowerCase() || '').includes(testSearch.toLowerCase())
   );
 
   return (
@@ -142,7 +142,7 @@ export default function DoctorNewSampleScreen() {
       >
         {/* Top Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.navigate('/(doctor)/home')}>
             <MaterialCommunityIcons name="arrow-left" size={22} color="#1E293B" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>New Patient Test Request</Text>
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOWS.medium,
+    ...SHADOWS.soft,
   },
   submitBtnText: { fontSize: 16, fontWeight: '900', color: '#FFFFFF' },
 });

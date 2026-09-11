@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Keyboard,
   Platform,
+  StatusBar,
 } from 'react-native';
 import type { ViewStyle, StyleProp } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -72,7 +73,9 @@ export default function ScreenWrapper({
         style={[styles.scrollView, scrollViewStyle]}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: bottomButton ? 80 + bottomInset : 24 + bottomInset },
+          { 
+            paddingBottom: bottomButton ? 80 + bottomInset : 24 + bottomInset 
+          },
           contentContainerStyle,
         ]}
         keyboardShouldPersistTaps="handled"

@@ -138,7 +138,7 @@ const statusMap: Record<TabType, string[]> = {
           </Text>
         </View>
       )}
-<TouchableOpacity style={styles.detailsBtn} onPress={() => router.push({ pathname: '/(partner)/booking-detail', params: { bookingData: JSON.stringify(item) } })}>
+<TouchableOpacity style={styles.detailsBtn} onPress={() => router.navigate({ pathname: '/(partner)/booking-detail', params: { bookingData: JSON.stringify(item) } } as any)}>
         <Text style={styles.detailsBtnText}>Details</Text>
         <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.primary} />
       </TouchableOpacity>

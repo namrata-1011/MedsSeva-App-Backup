@@ -264,6 +264,9 @@ submitRating: (data: { bookingId: string; rating: number; review?: string }) =>
     targetBranchId: string;
     patientName: string;
     patientMobile?: string;
+    patientAge?: number;
+    patientGender?: string;
+    testIds?: string[];
     sampleType?: string;
     notes?: string;
   }) => api.post('/doctors/direct-handover', data).then(res => res.data),

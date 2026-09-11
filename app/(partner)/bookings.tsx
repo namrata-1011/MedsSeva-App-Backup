@@ -190,7 +190,7 @@ router.push({
           setUpdatingId(null);
         }
       } else {
-     router.push(
+      router.push(
           `/partner-flow/collect?bookingId=${booking.id}&paymentStatus=${booking.paymentStatus}&otpVerified=${(booking as any).otpVerified ?? false}` as any
         );
       }

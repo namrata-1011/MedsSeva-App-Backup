@@ -111,7 +111,7 @@ const handleAccept = async (bookingId: string) => {
       setRequests(prev => prev.filter(b => b.id !== bookingId));
       setStats(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1), accepted: prev.accepted + 1 }));
       // Navigate to Bookings tab where the accepted job now appears
-      router.push('/(partner)/bookings');
+      router.navigate('/(partner)/bookings');
     } catch {
      showError('Could not accept booking. Try again.');
     } finally {
@@ -241,7 +241,7 @@ const handleDecline = (bookingId: string) => {
         {/* Recent Requests */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Requests</Text>
-         <TouchableOpacity onPress={() => router.push('/(partner)/bookings')}>
+         <TouchableOpacity onPress={() => router.navigate('/(partner)/bookings')}>
             <Text style={styles.viewAll}>View All</Text>
           </TouchableOpacity>
         </View>

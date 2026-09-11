@@ -61,9 +61,9 @@ export default function DoctorPatientsScreen() {
     if (search.trim()) {
       const q = search.toLowerCase();
       return (
-        r.patientName?.toLowerCase().includes(q) ||
-        r.bookingCode?.toLowerCase().includes(q) ||
-        r.patientMobile?.includes(q)
+        (r.patientName?.toLowerCase() || '').includes(q) ||
+        (r.bookingCode?.toLowerCase() || '').includes(q) ||
+        (r.patientMobile || '').includes(q)
       );
     }
     return true;
@@ -136,7 +136,7 @@ export default function DoctorPatientsScreen() {
                 <Text style={styles.emptySub}>Ordered tests and lab reports will appear here.</Text>
               </View>
             }
-            renderItem={({ item: r }) => {
+            renderItem={({ item: r }: any) => {
               const badge = getStatusBadge(r.bookingStatus, !!r.report);
               return (
                 <View style={styles.card}>

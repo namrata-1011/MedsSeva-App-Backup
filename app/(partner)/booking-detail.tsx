@@ -101,7 +101,7 @@ useEffect(() => {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       <View style={styles.header}>
-   <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(partner)/history')} activeOpacity={0.7}>
+   <TouchableOpacity style={styles.backBtn} onPress={() => router.navigate('/(partner)/history')} activeOpacity={0.7}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#0F172A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Booking Details</Text>
