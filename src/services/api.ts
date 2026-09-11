@@ -134,7 +134,24 @@ updateMe: (data: { name?: string; email?: string; dob?: string; gender?: string;
   getPartnerHistory: () => api.get('/partner/history').then(res => res.data),
 getPartnerNotifications: () => api.get('/partner/notifications').then(res => res.data),
   getBookingOtp: (bookingId: string) => api.get(`/bookings/${bookingId}/collection-otp`).then(res => res.data),
-  verifyBookingOtp: (bookingId: string, otp: string) => api.post(`/bookings/${bookingId}/verify-otp`, { otp }).then(res => res.data),
+  verifyBookingOtp: async (bookingId: string, otp: string) => {
+    try {
+      const res = await api.post(`/partner/bookings/${bookingId}/verify-otp`, { otp });
+      return res.data;
+    } catch {
+      const fallbackRes = await api.post(`/bookings/${bookingId}/verify-otp`, { otp });
+      return fallbackRes.data;
+    }
+  },
+  verifySampleOtp: async (bookingId: string, otp: string) => {
+    try {
+      const res = await api.post(`/partner/bookings/${bookingId}/verify-otp`, { otp });
+      return res.data;
+    } catch {
+      const fallbackRes = await api.post(`/bookings/${bookingId}/verify-otp`, { otp });
+      return fallbackRes.data;
+    }
+  },
 getBookingDetails: (bookingId: string) => api.get(`/bookings?id=${bookingId}`).then(res => {
     const data = res.data;
     return Array.isArray(data) ? data[0] ?? null : data;
@@ -143,8 +160,18 @@ acceptBooking: (bookingId: string) => api.patch(`/partner/bookings/${bookingId}/
 acceptLabBooking: (bookingId: string) => api.patch(`/bookings/${bookingId}/accept-lab`).then(res => res.data),
   patientReachedLab: (bookingId: string) => api.patch(`/bookings/${bookingId}/patient-reached`).then(res => res.data),
   rejectLabBooking: (bookingId: string, reason?: string) => api.patch(`/bookings/${bookingId}/reject-lab`, { reason }).then(res => res.data),
-  rejectBooking: (bookingId: string, reason?: string) => api.patch(`/partner/bookings/${bookingId}/reject`, { reason }).then(res => res.data),
-  updateBookingStatus: (bookingId: string, status: string, note?: string) => api.patch(`/partner/bookings/${bookingId}/status`, { status, note }).then(res => res.data),
+  updateBookingStatus: async (bookingId: string, status: string, note?: string) => {
+    try {
+      const res = await api.patch(`/partner/bookings/${bookingId}/status`, { status, note });
+      return res.data;
+    } catch (err: any) {
+      if (err?.response?.status === 404 || err?.response?.data?.message?.includes('not found')) {
+        const fallbackRes = await api.patch(`/bookings/${bookingId}/status`, { status, note });
+        return fallbackRes.data;
+      }
+      throw err;
+    }
+  },
   toggleAvailability: (isAvailable: boolean) => api.patch('/partner/availability', { isAvailable }).then(res => res.data),
   getPartnerProfile: () => api.get('/partner/profile').then(res => res.data),
 collectCash: (bookingId: string) => api.post(`/partner/bookings/${bookingId}/collect-cash`).then(res => res.data),
@@ -198,7 +225,10 @@ uploadAvatar: (imageUri: string, mimeType: string, fileName: string) => {
   getPartnerAvailabilitySchedule: () => api.get('/partner/availability/schedule').then(res => res.data),
   updatePartnerAvailabilitySchedule: (data: any) => api.patch('/partner/availability/schedule', data).then(res => res.data),
   getPartnerBranch: () => api.get('/partner/branch').then(res => res.data),
-getPartnerRatings: () => api.get('/partner/ratings').then(res => res.data),
+  getPartnerRatings: () => api.get('/partner/ratings').then(res => res.data),
+  getPartnerBranchStaff: () => api.get('/partner/branch-staff').then(res => res.data),
+  assignPartnerStaff: (bookingId: string, executiveId: string) =>
+    api.patch(`/partner/bookings/${bookingId}/assign-staff`, { executiveId }).then(res => res.data),
   getDeliveryBranches: () => api.get('/partner/delivery-branches').then(res => res.data),
   selectDeliveryBranch: (bookingId: string, branchId: string) =>
     api.post(`/partner/bookings/${bookingId}/select-branch`, { branchId }).then(res => res.data),

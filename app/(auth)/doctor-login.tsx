@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, StatusBar, Platform
+  ActivityIndicator, StatusBar, Platform, BackHandler
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { useRouter } from 'expo-router';
@@ -22,6 +22,23 @@ export default function DoctorLoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const handleLogin = async () => {
     const cleanIdentifier = identifier.trim();
@@ -74,7 +91,7 @@ export default function DoctorLoginScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#334155" />
         </TouchableOpacity>
 

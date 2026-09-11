@@ -43,9 +43,15 @@ export default function PhlebotomistLoginScreen() {
       const partnerRole = (response.user?.partner?.role || '').toUpperCase();
       const designation = (response.user?.designation || '').toLowerCase();
 
-      const isPhlebotomistOrPartner =
+      // Separate Pathology Partner: Pathology Partners must not login via Phlebotomist portal
+      if (uRole === 'PATHOLOGY_PARTNER' || (partnerRole && partnerRole !== 'PHLEBOTOMIST')) {
+        setServerError('This login portal is strictly for Phlebotomists. Pathology Partners must log in via the Partner portal.');
+        setIsLoading(false);
+        return;
+      }
+
+      const isPhlebotomist =
         uRole === 'EXECUTIVE' ||
-        uRole === 'PATHOLOGY_PARTNER' ||
         partnerRole === 'PHLEBOTOMIST' ||
         adminSlug === 'executive' ||
         adminRole.includes('executive') ||
@@ -53,13 +59,13 @@ export default function PhlebotomistLoginScreen() {
         designation.includes('phlebotomist') ||
         designation.includes('collector');
 
-      if (!isPhlebotomistOrPartner) {
-        setServerError('This login portal is strictly for Collection Partners / Phlebotomists.');
+      if (!isPhlebotomist) {
+        setServerError('This login portal is strictly for Phlebotomists / Sample Collection Executives.');
         setIsLoading(false);
         return;
       }
 
-      const effectiveAppRole = (uRole === 'PATHOLOGY_PARTNER') ? 'PATHOLOGY_PARTNER' : 'EXECUTIVE';
+      const effectiveAppRole = 'EXECUTIVE';
 
       const userObj = {
         id: response.user.id,
@@ -80,7 +86,7 @@ export default function PhlebotomistLoginScreen() {
       await AsyncStorage.setItem('user', JSON.stringify(userObj));
       await tokenStorage.setItem('token', response.token);
       dispatch(loginSuccess(userObj));
-      router.replace('/(partner)/home');
+      router.replace('/(phlebotomist)/home' as any);
     } catch (error: any) {
       const err = error.response?.data;
       if (err?.pendingApproval) {
@@ -97,7 +103,7 @@ export default function PhlebotomistLoginScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#334155" />
         </TouchableOpacity>
 
@@ -133,8 +139,20 @@ export default function PhlebotomistLoginScreen() {
 
           {serverError && (
             <View style={styles.serverErrorBox}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#EF4444" />
-              <Text style={styles.serverErrorText}>{serverError}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, width: '100%' }}>
+                <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#EF4444" style={{ marginTop: 2 }} />
+                <Text style={styles.serverErrorText}>{serverError}</Text>
+              </View>
+              {serverError.includes('Partner portal') && (
+                <TouchableOpacity
+                  style={styles.partnerRedirectBtn}
+                  onPress={() => router.push('/(auth)/partner-login')}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="microscope" size={14} color="#0D9488" />
+                  <Text style={styles.partnerRedirectText}>Go to Pathology Partner Login</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -182,11 +200,17 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   input: { flex: 1, fontSize: 14, color: '#0F172A' },
   serverErrorBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'column', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12,
     borderWidth: 1, borderColor: '#FECACA', width: '100%', marginBottom: 16,
   },
   serverErrorText: { fontSize: 13, color: '#EF4444', fontWeight: '600', flex: 1 },
+  partnerRedirectBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F0FDFA', borderColor: '#99F6E4', borderWidth: 1,
+    paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, marginTop: 4,
+  },
+  partnerRedirectText: { fontSize: 12, fontWeight: '700', color: '#0F766E' },
   loginBtn: {
     backgroundColor: COLORS.primary, height: 50, borderRadius: 14,
     justifyContent: 'center', alignItems: 'center', width: '100%', marginTop: 8, marginBottom: 20, ...SHADOWS.soft,

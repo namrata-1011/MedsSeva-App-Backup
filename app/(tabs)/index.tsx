@@ -37,8 +37,10 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user?.role === 'DOCTOR' || user?.role === 'PATHOLOGIST') {
       router.replace('/(doctor)/home' as any);
-    } else if (user?.role === 'PATHOLOGY_PARTNER' || user?.role === 'EXECUTIVE') {
-      router.replace('/(partner)/home');
+    } else if (user?.role === 'EXECUTIVE' || user?.partner?.role === 'PHLEBOTOMIST' || user?.adminRoleSlug === 'executive') {
+      router.replace('/(phlebotomist)/home' as any);
+    } else if (user?.role === 'PATHOLOGY_PARTNER') {
+      router.replace('/(partner)/home' as any);
     }
   }, [user?.role]);
 

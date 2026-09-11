@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, StatusBar, ActivityIndicator, Linking
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  RefreshControl, StatusBar, ActivityIndicator, Linking, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
-import { showError } from '../../src/store/toastStore';
+import { showSuccess, showError } from '../../src/store/toastStore';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 
 interface Booking {
@@ -42,6 +42,41 @@ export default function PartnerBookingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [declineTarget, setDeclineTarget] = useState<string | null>(null);
+  const [assignModalVisible, setAssignModalVisible] = useState(false);
+  const [selectedBookingForAssign, setSelectedBookingForAssign] = useState<Booking | null>(null);
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [assigningStaffId, setAssigningStaffId] = useState<string | null>(null);
+
+  const openAssignModal = async (booking: Booking) => {
+    setSelectedBookingForAssign(booking);
+    setAssignModalVisible(true);
+    setLoadingStaff(true);
+    try {
+      const data = await apiService.getPartnerBranchStaff();
+      setStaffList(Array.isArray(data) ? data : []);
+    } catch {
+      showError('Failed to load branch employee staff.');
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  const handleAssignStaff = async (staffMember: any) => {
+    if (!selectedBookingForAssign) return;
+    setAssigningStaffId(staffMember.userId || staffMember.id);
+    try {
+      await apiService.assignPartnerStaff(selectedBookingForAssign.id, staffMember.userId || staffMember.id);
+      showSuccess(`Booking assigned to ${staffMember.name}`);
+      setAssignModalVisible(false);
+      setSelectedBookingForAssign(null);
+      await loadBookings();
+    } catch (e: any) {
+      showError(e?.response?.data?.error || 'Failed to assign staff.');
+    } finally {
+      setAssigningStaffId(null);
+    }
+  };
 
 const loadBookings = useCallback(async () => {
     try {
@@ -290,11 +325,22 @@ const handleReject = (bookingId: string) => {
               }
             </TouchableOpacity>
           </View>
-   ) : nextLabel ? (
+        ) : nextLabel ? (
           <View style={styles.actionRow}>
             <TouchableOpacity style={styles.callBtn} onPress={() => handleCall(item.patientMobile)}>
               <MaterialCommunityIcons name="phone-outline" size={18} color={COLORS.primary} />
             </TouchableOpacity>
+
+            {item.status === 'ACCEPTED' && (
+              <TouchableOpacity
+                style={styles.assignToBtn}
+                onPress={() => openAssignModal(item)}
+              >
+                <MaterialCommunityIcons name="account-arrow-right-outline" size={16} color="#1D4ED8" />
+                <Text style={styles.assignToBtnText}>Assign To</Text>
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
               style={[styles.statusUpdateBtn, updatingId === item.id && { opacity: 0.6 }]}
               onPress={() => handleUpdateStatus(item)}
@@ -323,11 +369,10 @@ const handleReject = (bookingId: string) => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <View style={styles.header}>
-  
-       <View />
+        <View />
       </View>
 
-    <ConfirmSheet
+      <ConfirmSheet
         visible={declineTarget !== null}
         title="Decline Booking"
         message="Are you sure you want to decline this booking?"
@@ -337,13 +382,14 @@ const handleReject = (bookingId: string) => {
         onConfirm={confirmDecline}
         onCancel={() => setDeclineTarget(null)}
       />
+
       <FlatList
         data={bookings}
         keyExtractor={item => item.id}
         renderItem={renderBooking}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
         contentContainerStyle={styles.listContent}
-   ListEmptyComponent={
+        ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconWrapper}>
               <MaterialCommunityIcons name="calendar-blank-outline" size={56} color="#CBD5E1" />
@@ -353,6 +399,84 @@ const handleReject = (bookingId: string) => {
           </View>
         }
       />
+
+      {/* Assign To Branch Employee Phlebotomist Modal */}
+      <Modal
+        visible={assignModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAssignModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Assign to Branch Employee</Text>
+                <Text style={styles.modalSub}>
+                  Booking: {selectedBookingForAssign?.bookingCode} ({selectedBookingForAssign?.patientName})
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setAssignModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <MaterialCommunityIcons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {loadingStaff ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+                <Text style={{ marginTop: 12, color: '#64748B', fontSize: 13, fontWeight: '600' }}>
+                  Loading branch staff...
+                </Text>
+              </View>
+            ) : staffList.length === 0 ? (
+              <View style={{ padding: 30, alignItems: 'center' }}>
+                <MaterialCommunityIcons name="account-search-outline" size={48} color="#CBD5E1" />
+                <Text style={{ marginTop: 10, fontSize: 14, fontWeight: '700', color: '#334155' }}>
+                  No In-House Phlebotomists Found
+                </Text>
+                <Text style={{ marginTop: 4, fontSize: 12, color: '#94A3B8', textAlign: 'center' }}>
+                  Create employee phlebotomists from the Admin Staff panel first.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={staffList}
+                keyExtractor={(item) => item.id || item.userId}
+                contentContainerStyle={{ paddingVertical: 10 }}
+                renderItem={({ item }) => {
+                  const isAssigning = assigningStaffId === (item.userId || item.id);
+                  return (
+                    <TouchableOpacity
+                      style={styles.staffItemCard}
+                      disabled={!!assigningStaffId}
+                      onPress={() => handleAssignStaff(item)}
+                    >
+                      <View style={styles.staffAvatar}>
+                        <MaterialCommunityIcons name="needle" size={20} color="#1D4ED8" />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.staffName}>{item.name}</Text>
+                        <Text style={styles.staffDesignation}>{item.designation || 'In-House Phlebotomist'}</Text>
+                        {item.mobile ? <Text style={styles.staffMobile}>📱 {item.mobile}</Text> : null}
+                      </View>
+                      <View style={styles.assignActionBtn}>
+                        {isAssigning ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.assignActionBtnText}>Assign</Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -365,8 +489,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16,
     backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
   },
-
-
   listContent: { padding: 16, paddingBottom: 40 },
   card: {
     backgroundColor: '#fff', borderRadius: 18, padding: 18,
@@ -418,12 +540,29 @@ const styles = StyleSheet.create({
     borderColor: '#CCFBF1', backgroundColor: '#F0FDFA',
     justifyContent: 'center', alignItems: 'center',
   },
+  assignToBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 12,
+    height: 46,
+    borderRadius: 12,
+  },
+  assignToBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
   statusUpdateBtn: {
     flex: 1, height: 46, borderRadius: 12, backgroundColor: COLORS.primary,
     justifyContent: 'center', alignItems: 'center',
   },
   statusUpdateBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
-emptyContainer: {
+  emptyContainer: {
     flex: 1,
     minHeight: 500,
     justifyContent: 'center',
@@ -441,4 +580,88 @@ emptyContainer: {
   },
   emptyText: { fontSize: 17, fontWeight: '700', color: '#64748B', marginBottom: 8, textAlign: 'center' },
   emptySubText: { fontSize: 13, fontWeight: '400', color: '#94A3B8', textAlign: 'center', lineHeight: 20 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '75%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  modalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  staffAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  staffDesignation: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2563EB',
+    marginTop: 1,
+  },
+  staffMobile: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  assignActionBtn: {
+    backgroundColor: '#1D4ED8',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  assignActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
 });

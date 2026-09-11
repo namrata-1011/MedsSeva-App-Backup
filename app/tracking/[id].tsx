@@ -68,12 +68,12 @@ const { data: bookings = null, isLoading, refetch } = useQuery({
 const liveBooking = bookings;
   // Single source of truth - everything derives from this one rank value
   const currentStatusRank = getStatusRank(liveBooking?.status || 'PENDING');
-  const isAssigned = liveBooking?.assignedPartnerId != null;
+  const isAssigned = liveBooking?.assignedPartnerId != null || liveBooking?.assignedExecutiveId != null || liveBooking?.assignedExecutive != null;
   const isPaidOnline = liveBooking?.paymentStatus === 'SUCCESS';
   const otp = liveBooking?.collectionOtp;
-  const showOtp = !isPaidOnline && otp && ['ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'REACHED_LOCATION'].includes(liveBooking?.status);
+  const showOtp = otp && !liveBooking?.otpVerified && ['ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'REACHED_LOCATION'].includes(liveBooking?.status);
 
-const [downloading, setDownloading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const handleDownloadInvoice = async () => {
     const invoiceUrl = liveBooking?.payment?.invoiceUrl;
@@ -113,7 +113,7 @@ const [downloading, setDownloading] = useState(false);
         },
       }).fetch('GET', invoiceUrl);
 
-    showSuccess('Invoice downloaded successfully.');
+      showSuccess('Invoice downloaded successfully.');
     } catch {
       showError('Failed to download invoice. Please try again.');
     } finally {
@@ -128,13 +128,15 @@ const [downloading, setDownloading] = useState(false);
   }, [refetch]);
 
   const handleCall = () => {
-    const mobile = liveBooking?.assignedPartner?.user?.mobile;
+    const mobile = liveBooking?.assignedPartner?.user?.mobile || liveBooking?.assignedExecutive?.mobile;
     if (mobile) Linking.openURL(`tel:${mobile}`);
   };
 
-  const partnerName = liveBooking?.assignedPartner?.user?.name;
-  const partnerRole = liveBooking?.assignedPartner?.role || 'Sample Collection Executive';
-  const partnerRating = liveBooking?.assignedPartner?.rating?.toFixed(1) || '-';
+  const partnerName = liveBooking?.assignedPartner?.user?.name || liveBooking?.assignedExecutive?.name;
+  const partnerRole = liveBooking?.assignedPartner?.role === 'PHLEBOTOMIST'
+    ? 'Phlebotomist'
+    : (liveBooking?.assignedPartner?.role || (liveBooking?.assignedExecutive ? 'Phlebotomist' : 'Sample Collection Executive'));
+  const partnerRating = liveBooking?.assignedPartner?.rating?.toFixed(1) || '5.0';
   const testNames = liveBooking?.tests?.map((t: any) => t.test?.name).filter(Boolean).join(', ') || 'Diagnostic Test';
 
   return (

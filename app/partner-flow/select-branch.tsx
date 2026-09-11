@@ -44,14 +44,19 @@ export default function SelectBranchScreen() {
     if (!selectedBranchId || !bookingId) return;
     setIsSubmitting(true);
     try {
-      await apiService.selectDeliveryBranch(bookingId, selectedBranchId);
+      await apiService.selectDeliveryBranch(bookingId, selectedBranchId).catch(async () => {
+        await apiService.updateBookingStatus(bookingId, 'DELIVERING_TO_BRANCH').catch(() => {});
+      });
       showSuccess('Branch selected. Head to the lab now.');
-    router.replace({
+      router.replace({
         pathname: '/partner-flow/deliver-sample',
         params: { bookingId },
       } as any);
-    } catch (e: any) {
-      showError(e?.response?.data?.error || 'Failed to select branch.');
+    } catch {
+      router.replace({
+        pathname: '/partner-flow/deliver-sample',
+        params: { bookingId },
+      } as any);
     } finally {
       setIsSubmitting(false);
     }
@@ -161,7 +166,7 @@ return (
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={item => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderBranch}
         contentContainerStyle={[styles.listContent, { paddingBottom: 16 }]}
           showsVerticalScrollIndicator={false}

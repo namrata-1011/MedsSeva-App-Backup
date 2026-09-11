@@ -6,11 +6,13 @@ import {
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 
 export default function DoctorPatientsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [referrals, setReferrals] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,61 +69,66 @@ export default function DoctorPatientsScreen() {
     return true;
   });
 
+  const renderHeader = () => (
+    <View style={{ marginBottom: 10 }}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Referred Patients & Reports</Text>
+        <Text style={styles.subtitle}>Track lab test status and view verified PDF reports</Text>
+      </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchWrap}>
+        <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" style={{ marginRight: 8 }} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search patient name, mobile, booking code..."
+          placeholderTextColor="#94A3B8"
+          value={search}
+          onChangeText={setSearch}
+        />
+        {search ? (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* Filter Pills */}
+      <View style={styles.filterRow}>
+        {[
+          { id: 'ALL', label: `All (${referrals.length})` },
+          { id: 'READY', label: `Report Ready (${referrals.filter(r => !!r.report).length})` },
+          { id: 'IN_PROGRESS', label: `In Progress (${referrals.filter(r => !r.report).length})` },
+        ].map(f => (
+          <TouchableOpacity
+            key={f.id}
+            style={[styles.filterPill, filter === f.id && styles.filterPillActive]}
+            onPress={() => setFilter(f.id as any)}
+          >
+            <Text style={[styles.filterPillText, filter === f.id && styles.filterPillTextActive]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Referred Patients & Reports</Text>
-          <Text style={styles.subtitle}>Track lab test status and view verified PDF reports</Text>
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchWrap}>
-          <MaterialCommunityIcons name="magnify" size={20} color="#94A3B8" style={{ marginRight: 8 }} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search patient name, mobile, booking code..."
-            placeholderTextColor="#94A3B8"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {/* Filter Pills */}
-        <View style={styles.filterRow}>
-          {[
-            { id: 'ALL', label: `All (${referrals.length})` },
-            { id: 'READY', label: `Report Ready (${referrals.filter(r => !!r.report).length})` },
-            { id: 'IN_PROGRESS', label: `In Progress (${referrals.filter(r => !r.report).length})` },
-          ].map(f => (
-            <TouchableOpacity
-              key={f.id}
-              style={[styles.filterPill, filter === f.id && styles.filterPillActive]}
-              onPress={() => setFilter(f.id as any)}
-            >
-              <Text style={[styles.filterPillText, filter === f.id && styles.filterPillTextActive]}>
-                {f.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Patients List */}
+      <ScreenWrapper scrollable={false} backgroundColor="#F8FAFC" contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, flex: 1 }]}>
         {isLoading && !refreshing ? (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
         ) : (
           <FlatList
             data={filteredReferrals}
             keyExtractor={item => item.bookingId}
+            ListHeaderComponent={renderHeader}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-            contentContainerStyle={{ paddingBottom: 60 }}
+            contentContainerStyle={{ paddingBottom: 80 + insets.bottom }}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <MaterialCommunityIcons name="file-document-outline" size={48} color="#CBD5E1" />

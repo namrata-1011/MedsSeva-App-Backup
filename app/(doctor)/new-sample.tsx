@@ -6,12 +6,14 @@ import {
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showSuccess, showError } from '../../src/store/toastStore';
 
 export default function DoctorNewSampleScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const initialMode = params.mode === 'HANDOVER' ? 'HANDOVER' : 'PICKUP';
 
@@ -128,7 +130,16 @@ export default function DoctorNewSampleScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content}>
+      <ScreenWrapper
+        backgroundColor="#F8FAFC"
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: 80 + insets.bottom,
+          },
+        ]}
+      >
         {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -321,7 +332,11 @@ export default function DoctorNewSampleScreen() {
                     />
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={[styles.testName, isSelected && styles.testNameActive]}>{t.name}</Text>
-                      {t.category && <Text style={styles.testCat}>{t.category}</Text>}
+                      {t.category && (
+                        <Text style={styles.testCat}>
+                          {typeof t.category === 'object' ? t.category?.name : t.category}
+                        </Text>
+                      )}
                     </View>
                     <Text style={styles.testPrice}>₹{t.price || 0}</Text>
                   </TouchableOpacity>

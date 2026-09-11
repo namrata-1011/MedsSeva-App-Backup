@@ -6,6 +6,7 @@ import {
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showError } from '../../src/store/toastStore';
@@ -57,6 +58,7 @@ interface DoctorPortalData {
 
 export default function DoctorHomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [period, setPeriod] = useState<'ALL' | 'WEEKLY' | 'MONTHLY'>('ALL');
   const [data, setData] = useState<DoctorPortalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,7 +104,13 @@ export default function DoctorHomeScreen() {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       <ScreenWrapper
         backgroundColor="#F8FAFC"
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: 80 + insets.bottom,
+          },
+        ]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
       >
         {/* Doctor Header Banner */}

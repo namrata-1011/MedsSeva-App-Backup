@@ -22,13 +22,14 @@ export default function SplashScreen() {
           dispatch(loginSuccess(user));
           
           setTimeout(() => {
-            const isPartnerOrPhlebo =
-              user.role === 'PATHOLOGY_PARTNER' ||
+            const isPhlebo =
               user.role === 'EXECUTIVE' ||
               user.partner?.role === 'PHLEBOTOMIST' ||
               user.adminRoleSlug === 'executive';
 
-            if (isPartnerOrPhlebo) {
+            if (isPhlebo) {
+              router.replace('/(phlebotomist)/home' as any);
+            } else if (user.role === 'PATHOLOGY_PARTNER') {
               router.replace('/(partner)/home' as any);
             } else if (user.role === 'DOCTOR' || user.role === 'PATHOLOGIST') {
               router.replace('/(doctor)/home' as any);

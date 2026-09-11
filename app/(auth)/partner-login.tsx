@@ -74,7 +74,7 @@ return (
         backgroundColor="#F8FAFC"
         contentContainerStyle={styles.content}
       >
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#334155" />
         </TouchableOpacity>
 

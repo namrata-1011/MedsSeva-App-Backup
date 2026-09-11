@@ -3,20 +3,23 @@ import {
   View,
   StyleSheet,
   Keyboard,
-  ViewStyle,
   Platform,
 } from 'react-native';
+import type { ViewStyle, StyleProp } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { COLORS } from '../theme/theme';
+
+const AwareScrollView = KeyboardAwareScrollView as any;
 
 interface ScreenWrapperProps {
   children: React.ReactNode;
   bottomButton?: React.ReactNode;
   scrollable?: boolean;
   backgroundColor?: string;
-  contentContainerStyle?: ViewStyle;
-  scrollViewStyle?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  scrollViewStyle?: StyleProp<ViewStyle>;
   disableKeyboardDismiss?: boolean;
   refreshControl?: React.ReactElement;
   extraScrollHeight?: number;
@@ -27,11 +30,12 @@ export default function ScreenWrapper({
   bottomButton,
   scrollable = true,
   backgroundColor = COLORS.background,
+  style,
   contentContainerStyle,
   scrollViewStyle,
   disableKeyboardDismiss = false,
   refreshControl,
-extraScrollHeight = 80,
+  extraScrollHeight = 80,
 }: ScreenWrapperProps) {
   const insets = useSafeAreaInsets();
   const bottomInset = insets.bottom;
@@ -44,7 +48,7 @@ extraScrollHeight = 80,
 
   if (!scrollable) {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
+      <View style={[styles.container, { backgroundColor }, style]}>
         <View style={[styles.nonScrollContent, contentContainerStyle]}>
           {children}
         </View>
@@ -63,8 +67,8 @@ extraScrollHeight = 80,
   }
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      <KeyboardAwareScrollView
+    <View style={[styles.container, { backgroundColor }, style]}>
+      <AwareScrollView
         style={[styles.scrollView, scrollViewStyle]}
         contentContainerStyle={[
           styles.scrollContent,
@@ -85,7 +89,7 @@ extraScrollHeight={extraScrollHeight}
         scrollEventThrottle={16}
       >
         {children}
-      </KeyboardAwareScrollView>
+      </AwareScrollView>
 
       {bottomButton && (
         <View

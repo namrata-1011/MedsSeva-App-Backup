@@ -7,6 +7,7 @@ import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useDispatch } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../../src/utils/tokenStorage';
 import { logout } from '../../src/store/slices/authSlice';
@@ -16,6 +17,7 @@ import { COLORS, SHADOWS } from '../../src/theme/theme';
 export default function DoctorProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,7 +39,7 @@ export default function DoctorProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await tokenStorage.removeItem('token');
+              await tokenStorage.deleteItem('token');
               await AsyncStorage.removeItem('user');
               dispatch(logout());
               router.replace('/(auth)/doctor-login' as any);
@@ -55,7 +57,16 @@ export default function DoctorProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content}>
+      <ScreenWrapper
+        backgroundColor="#F8FAFC"
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: insets.top + 8,
+            paddingBottom: 80 + insets.bottom,
+          },
+        ]}
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Doctor Profile</Text>
           <Text style={styles.subtitle}>Verified Medical Professional Account</Text>
@@ -64,7 +75,7 @@ export default function DoctorProfileScreen() {
         {isLoading ? (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <>
             {/* Identity Card */}
             <View style={styles.card}>
               <View style={styles.avatarRow}>
@@ -134,7 +145,7 @@ export default function DoctorProfileScreen() {
               <MaterialCommunityIcons name="logout" size={20} color="#EF4444" />
               <Text style={styles.logoutBtnText}>Logout from Doctor Portal</Text>
             </TouchableOpacity>
-          </ScrollView>
+          </>
         )}
       </ScreenWrapper>
     </View>
