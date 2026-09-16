@@ -26,7 +26,7 @@ interface HistoryItem {
 export default function PhlebotomistHistoryScreen() {
   const insets = useSafeAreaInsets();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = !!(
+  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
     user?.isEmployee === true ||
     user?.phlebotomistType === 'EMPLOYEE' ||
     user?.userType === 'STAFF' ||

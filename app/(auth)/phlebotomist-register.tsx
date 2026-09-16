@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, StatusBar, Platform, Modal
+  ActivityIndicator, StatusBar, Platform, Modal, ScrollView
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { useRouter } from 'expo-router';
@@ -11,8 +11,9 @@ import { apiService } from '../../src/services/api';
 import { showError, showSuccess } from '../../src/store/toastStore';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
-type GovtDocType = 'AADHAAR' | 'PAN_CARD';
+type GovtDocType = 'AADHAAR' | 'PAN_CARD' | 'DRIVING_LICENSE' | 'QUALIFICATION_DOC';
 
 export default function PhlebotomistRegisterScreen() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function PhlebotomistRegisterScreen() {
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   type QualType = 'DMLT' | 'BMLT' | 'OTHER';
   const [qualType, setQualType] = useState<QualType>('DMLT');
   const [otherQualification, setOtherQualification] = useState('');
@@ -29,14 +31,42 @@ export default function PhlebotomistRegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Government ID upload state — separate independent states for Aadhaar (mandatory) and PAN (optional)
   type DocEntry = { documentType: GovtDocType; fileName: string; fileUrl: string; mimeType?: string; fileSize?: number; };
-  const [selectedDocType, setSelectedDocType] = useState<GovtDocType>('AADHAAR');
   const [aadhaarDoc, setAadhaarDoc] = useState<DocEntry | null>(null);
   const [panDoc, setPanDoc] = useState<DocEntry | null>(null);
+  const [dlDoc, setDlDoc] = useState<DocEntry | null>(null);
+  const [qualDoc, setQualDoc] = useState<DocEntry | null>(null);
+
   const [targetDocType, setTargetDocType] = useState<GovtDocType>('AADHAAR');
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [showPickerModal, setShowPickerModal] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+  const handleGetLocation = async () => {
+    try {
+      setIsFetchingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showError('Permission to access location was denied');
+        setIsFetchingLocation(false);
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [address] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      });
+      if (address) {
+        const area = [address.district, address.city, address.region].filter(Boolean).join(', ');
+        setServiceArea(area || 'Unknown Area');
+        showSuccess('Location detected successfully');
+      }
+    } catch (err) {
+      showError('Failed to fetch location. Please enter manually.');
+    } finally {
+      setIsFetchingLocation(false);
+    }
+  };
 
   const handlePickDocument = async (source: 'camera' | 'gallery' | 'document') => {
     setShowPickerModal(false);
@@ -52,67 +82,35 @@ export default function PhlebotomistRegisterScreen() {
       if (source === 'camera') {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) {
-          showError('Camera permission is required to capture government ID.');
+          showError('Camera permission is required.');
           setIsUploadingDoc(false);
           return;
         }
-        const res = await ImagePicker.launchCameraAsync({
-          quality: 0.8,
-          allowsEditing: false,
-        });
-        if (res.canceled || !res.assets?.length) {
-          setIsUploadingDoc(false);
-          return;
-        }
+        const res = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: false });
+        if (res.canceled || !res.assets?.length) { setIsUploadingDoc(false); return; }
         const a = res.assets[0];
-        fileUri = a.uri;
-        fileName = a.fileName || `${targetDocType}_doc.jpg`;
-        mimeType = a.mimeType || 'image/jpeg';
-        fileSize = a.fileSize || 0;
+        fileUri = a.uri; fileName = a.fileName || `${targetDocType}_doc.jpg`; mimeType = a.mimeType || 'image/jpeg'; fileSize = a.fileSize || 0;
       } else if (source === 'gallery') {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
-          showError('Photo gallery permission is required to upload document.');
+          showError('Photo gallery permission is required.');
           setIsUploadingDoc(false);
           return;
         }
-        const res = await ImagePicker.launchImageLibraryAsync({
-          quality: 0.8,
-          allowsEditing: false,
-        });
-        if (res.canceled || !res.assets?.length) {
-          setIsUploadingDoc(false);
-          return;
-        }
+        const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: false });
+        if (res.canceled || !res.assets?.length) { setIsUploadingDoc(false); return; }
         const a = res.assets[0];
-        fileUri = a.uri;
-        fileName = a.fileName || `${targetDocType}_doc.jpg`;
-        mimeType = a.mimeType || 'image/jpeg';
-        fileSize = a.fileSize || 0;
+        fileUri = a.uri; fileName = a.fileName || `${targetDocType}_doc.jpg`; mimeType = a.mimeType || 'image/jpeg'; fileSize = a.fileSize || 0;
       } else if (source === 'document') {
-        const res = await DocumentPicker.getDocumentAsync({
-          type: ['application/pdf', 'image/jpeg', 'image/png'],
-          copyToCacheDirectory: true,
-        });
-        if (res.canceled || !res.assets?.length) {
-          setIsUploadingDoc(false);
-          return;
-        }
+        const res = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/jpeg', 'image/png'], copyToCacheDirectory: true });
+        if (res.canceled || !res.assets?.length) { setIsUploadingDoc(false); return; }
         const a = res.assets[0];
-        fileUri = a.uri;
-        fileName = a.name || `${targetDocType}_doc.pdf`;
-        mimeType = a.mimeType || 'application/pdf';
-        fileSize = a.size || 0;
+        fileUri = a.uri; fileName = a.name || `${targetDocType}_doc.pdf`; mimeType = a.mimeType || 'application/pdf'; fileSize = a.size || 0;
       }
 
       let fileUrl = fileUri;
       try {
-        const uploadRes = await apiService.uploadPartnerOnboardingDocument(
-          fileUri,
-          mimeType,
-          fileName,
-          targetDocType
-        );
+        const uploadRes = await apiService.uploadPartnerOnboardingDocument(fileUri, mimeType, fileName, targetDocType);
         if (uploadRes?.document?.fileUrl) {
           fileUrl = uploadRes.document.fileUrl;
         }
@@ -120,29 +118,20 @@ export default function PhlebotomistRegisterScreen() {
         console.warn('Document server upload fallback to local URI:', uploadErr);
       }
 
-      const docEntry: DocEntry = {
-        documentType: targetDocType,
-        fileName,
-        fileUrl,
-        mimeType,
-        fileSize,
-      };
+      const docEntry: DocEntry = { documentType: targetDocType, fileName, fileUrl, mimeType, fileSize };
 
       if (targetDocType === 'AADHAAR') {
         setAadhaarDoc(docEntry);
-        if (panDoc) {
-          showSuccess('Aadhaar Card and PAN Card attached!');
-        } else {
-          showSuccess('Aadhaar Card attached!');
-          setSelectedDocType('PAN_CARD');
-        }
-      } else {
+        showSuccess('Aadhaar Card attached!');
+      } else if (targetDocType === 'PAN_CARD') {
         setPanDoc(docEntry);
-        if (aadhaarDoc) {
-          showSuccess('Aadhaar Card and PAN Card attached!');
-        } else {
-          showSuccess('PAN Card attached!');
-        }
+        showSuccess('PAN Card attached!');
+      } else if (targetDocType === 'DRIVING_LICENSE') {
+        setDlDoc(docEntry);
+        showSuccess('Driving License attached!');
+      } else if (targetDocType === 'QUALIFICATION_DOC') {
+        setQualDoc(docEntry);
+        showSuccess('Qualification Document attached!');
       }
     } catch (err: any) {
       console.error('Document selection error:', err);
@@ -154,39 +143,22 @@ export default function PhlebotomistRegisterScreen() {
 
   const handleRegister = async () => {
     setServerError(null);
-    if (!name.trim()) {
-      setServerError('Please enter your Full Name.');
-      return;
-    }
+    if (!name.trim()) { setServerError('Please enter your Full Name.'); return; }
     const cleanMobile = mobile.trim().replace(/\D/g, '');
-    if (!cleanMobile || cleanMobile.length !== 10) {
-      setServerError('Please enter a valid 10-digit mobile number.');
-      return;
-    }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setServerError('Please enter a valid email address.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setServerError('Password must be at least 6 characters long.');
-      return;
-    }
+    if (!cleanMobile || cleanMobile.length !== 10) { setServerError('Please enter a valid 10-digit mobile number.'); return; }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setServerError('Please enter a valid email address.'); return; }
+    if (!password || password.length < 6) { setServerError('Password must be at least 6 characters long.'); return; }
+    
     const finalQual = qualType === 'DMLT' ? 'DMLT' : qualType === 'BMLT' ? 'BMLT' : otherQualification.trim();
-    if (qualType === 'OTHER' && !finalQual) {
-      setServerError('Please specify your qualification.');
-      return;
-    }
+    if (qualType === 'OTHER' && !finalQual) { setServerError('Please specify your qualification.'); return; }
 
-    // Aadhaar Card is MUST (Required), PAN Card is OPTIONAL
-    if (!aadhaarDoc || !aadhaarDoc.fileUrl) {
-      setServerError('Aadhaar Card is required. Please upload your Aadhaar Card.');
-      return;
-    }
+    if (!aadhaarDoc && !panDoc && !dlDoc) { setServerError('Please upload at least one Government ID (Aadhaar, PAN, or Driving License).'); return; }
 
-    const docsList: DocEntry[] = [aadhaarDoc];
-    if (panDoc && panDoc.fileUrl) {
-      docsList.push(panDoc);
-    }
+    const docsList: DocEntry[] = [];
+    if (aadhaarDoc && aadhaarDoc.fileUrl) docsList.push(aadhaarDoc);
+    if (panDoc && panDoc.fileUrl) docsList.push(panDoc);
+    if (dlDoc && dlDoc.fileUrl) docsList.push(dlDoc);
+    if (qualDoc && qualDoc.fileUrl) docsList.push(qualDoc);
 
     setIsLoading(true);
     try {
@@ -202,20 +174,66 @@ export default function PhlebotomistRegisterScreen() {
         address: serviceArea.trim() || 'Independent',
         documents: docsList,
       });
-
       router.replace('/(auth)/phlebotomist-pending');
     } catch (error: any) {
-      const errMsg = error.response?.data?.error || error.response?.data?.message || (typeof error.response?.data === 'string' ? error.response?.data : null) || error.message || 'Failed to submit application. Try again.';
+      const errMsg = error.response?.data?.error || error.response?.data?.message || (typeof error.response?.data === 'string' ? error.response?.data : null) || error.message || 'Failed to submit application.';
       setServerError(errMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const renderDocRow = (type: GovtDocType, title: string, docState: DocEntry | null, isRequired: boolean) => (
+    <View style={styles.inlineDocRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.inlineDocTitle}>{title} {isRequired && <Text style={{ color: '#EF4444' }}>*</Text>}</Text>
+        {docState ? (
+          <Text style={styles.inlineDocFileName} numberOfLines={1}>{docState.fileName}</Text>
+        ) : (
+          <Text style={styles.inlineDocSub}>{isRequired ? 'Required' : ''}</Text>
+        )}
+      </View>
+      {docState ? (
+        <View style={styles.inlineDocActions}>
+          <View style={styles.inlineCheck}><MaterialCommunityIcons name="check" size={12} color="#059669" /></View>
+          <TouchableOpacity
+            style={styles.inlineRemoveBtn}
+            onPress={() => {
+              if (type === 'AADHAAR') setAadhaarDoc(null);
+              if (type === 'PAN_CARD') setPanDoc(null);
+              if (type === 'DRIVING_LICENSE') setDlDoc(null);
+              if (type === 'QUALIFICATION_DOC') setQualDoc(null);
+            }}
+          >
+            <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.inlineUploadBtn}
+          onPress={() => { setTargetDocType(type); setShowPickerModal(true); }}
+        >
+          <MaterialCommunityIcons name="cloud-upload-outline" size={16} color={COLORS.primary} />
+          <Text style={styles.inlineUploadBtnText}>Upload</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const getModalTitle = () => {
+    switch (targetDocType) {
+      case 'AADHAAR': return 'Aadhaar Card';
+      case 'PAN_CARD': return 'PAN Card';
+      case 'DRIVING_LICENSE': return 'Driving License';
+      case 'QUALIFICATION_DOC': return 'Qualification Document';
+      default: return 'Document';
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-      <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#334155" />
         </TouchableOpacity>
@@ -248,80 +266,16 @@ export default function PhlebotomistRegisterScreen() {
           <Text style={styles.fieldLabel}>Password *</Text>
           <View style={styles.inputWrap}>
             <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="At least 6 characters" placeholderTextColor="#94A3B8" secureTextEntry value={password} onChangeText={setPassword} />
-          </View>
-
-          <Text style={styles.fieldLabel}>Qualification / Certification *</Text>
-          <View style={[styles.docTypeSelector, { marginBottom: 10 }]}>
-            <TouchableOpacity
-              style={[styles.docTypeTab, qualType === 'DMLT' && styles.docTypeTabActive]}
-              onPress={() => setQualType('DMLT')}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name="school-outline"
-                size={16}
-                color={qualType === 'DMLT' ? COLORS.primary : '#64748B'}
-              />
-              <Text style={[styles.docTypeTabText, qualType === 'DMLT' && styles.docTypeTabTextActive]}>
-                DMLT
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.docTypeTab, qualType === 'BMLT' && styles.docTypeTabActive]}
-              onPress={() => setQualType('BMLT')}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name="school"
-                size={16}
-                color={qualType === 'BMLT' ? COLORS.primary : '#64748B'}
-              />
-              <Text style={[styles.docTypeTabText, qualType === 'BMLT' && styles.docTypeTabTextActive]}>
-                BMLT
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.docTypeTab, qualType === 'OTHER' && styles.docTypeTabActive]}
-              onPress={() => setQualType('OTHER')}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons
-                name="certificate-outline"
-                size={16}
-                color={qualType === 'OTHER' ? COLORS.primary : '#64748B'}
-              />
-              <Text style={[styles.docTypeTabText, qualType === 'OTHER' && styles.docTypeTabTextActive]}>
-                Other
-              </Text>
+            <TextInput style={[styles.input, { flex: 1 }]} placeholder="At least 6 characters" placeholderTextColor="#94A3B8" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
+              <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
             </TouchableOpacity>
           </View>
-
-          {qualType === 'OTHER' && (
-            <View style={[styles.inputWrap, { marginBottom: 12 }]}>
-              <MaterialCommunityIcons name="certificate-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Specify Qualification (e.g. B.Sc MLT / CMLT)"
-                placeholderTextColor="#94A3B8"
-                value={otherQualification}
-                onChangeText={setOtherQualification}
-              />
-            </View>
-          )}
 
           <Text style={styles.fieldLabel}>Other Details / Specialization (Optional)</Text>
           <View style={styles.inputWrap}>
             <MaterialCommunityIcons name="text-box-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Pediatric collection, ICU sampling, etc."
-              placeholderTextColor="#94A3B8"
-              value={otherDetails}
-              onChangeText={setOtherDetails}
-            />
+            <TextInput style={styles.input} placeholder="e.g. Pediatric collection, ICU etc." placeholderTextColor="#94A3B8" value={otherDetails} onChangeText={setOtherDetails} />
           </View>
 
           <Text style={styles.fieldLabel}>Years of Experience</Text>
@@ -333,179 +287,71 @@ export default function PhlebotomistRegisterScreen() {
           <Text style={styles.fieldLabel}>Preferred Service Area / City</Text>
           <View style={styles.inputWrap}>
             <MaterialCommunityIcons name="map-marker-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="e.g. South Delhi / Noida" placeholderTextColor="#94A3B8" value={serviceArea} onChangeText={setServiceArea} />
+            <TextInput style={[styles.input, { flex: 1 }]} placeholder="e.g. South Delhi / Noida" placeholderTextColor="#94A3B8" value={serviceArea} onChangeText={setServiceArea} />
+            <TouchableOpacity onPress={handleGetLocation} style={{ padding: 4 }}>
+              {isFetchingLocation ? <ActivityIndicator size="small" color={COLORS.primary} /> : <MaterialCommunityIcons name="crosshairs-gps" size={18} color={COLORS.primary} />}
+            </TouchableOpacity>
           </View>
 
           {/* Government ID Section */}
           <View style={styles.docSection}>
             <View style={styles.docSectionHeader}>
               <MaterialCommunityIcons name="card-account-details-outline" size={18} color={COLORS.primary} />
-              <Text style={styles.docSectionTitle}>Government ID Proof *</Text>
+              <Text style={styles.docSectionTitle}>Government ID Proof</Text>
             </View>
-            <Text style={styles.docSectionSubtitle}>
-              Select ID type and upload Aadhaar Card or PAN Card proof
-            </Text>
+            <Text style={styles.docSectionSubtitle}>Upload at least one ID document (Aadhaar, PAN, or DL) *</Text>
 
-            {/* Document Type Selector Tabs */}
-            <View style={styles.docTypeSelector}>
-              <TouchableOpacity
-                style={[
-                  styles.docTypeTab,
-                  selectedDocType === 'AADHAAR' && styles.docTypeTabActive,
-                  aadhaarDoc && styles.docTypeTabUploaded,
-                ]}
-                onPress={() => setSelectedDocType('AADHAAR')}
-              >
-                <MaterialCommunityIcons
-                  name="card-account-details"
-                  size={18}
-                  color={selectedDocType === 'AADHAAR' ? COLORS.primary : aadhaarDoc ? '#047857' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.docTypeTabText,
-                    selectedDocType === 'AADHAAR' && styles.docTypeTabTextActive,
-                    aadhaarDoc && styles.docTypeTabTextUploaded,
-                  ]}
-                >
-                  Aadhaar Card
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.docTypeTab,
-                  selectedDocType === 'PAN_CARD' && styles.docTypeTabActive,
-                  panDoc && styles.docTypeTabUploaded,
-                ]}
-                onPress={() => setSelectedDocType('PAN_CARD')}
-              >
-                <MaterialCommunityIcons
-                  name="credit-card-outline"
-                  size={18}
-                  color={selectedDocType === 'PAN_CARD' ? COLORS.primary : panDoc ? '#047857' : '#64748B'}
-                />
-                <Text
-                  style={[
-                    styles.docTypeTabText,
-                    selectedDocType === 'PAN_CARD' && styles.docTypeTabTextActive,
-                    panDoc && styles.docTypeTabTextUploaded,
-                  ]}
-                >
-                  PAN Card
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Persistent Aadhaar Card if uploaded */}
-            {aadhaarDoc && (
-              <View style={styles.uploadedCard}>
-                <View style={styles.uploadedLeft}>
-                  <View style={styles.checkCircle}>
-                    <MaterialCommunityIcons name="check" size={16} color="#059669" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.uploadedType}>Aadhaar Card Uploaded</Text>
-                    <Text style={styles.uploadedName} numberOfLines={1}>
-                      {aadhaarDoc.fileName}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.uploadedActions}>
-                  <TouchableOpacity
-                    style={styles.changeBtn}
-                    onPress={() => {
-                      setTargetDocType('AADHAAR');
-                      setShowPickerModal(true);
-                    }}
-                  >
-                    <Text style={styles.changeBtnText}>Change</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.removeBtn}
-                    onPress={() => {
-                      setAadhaarDoc(null);
-                      setSelectedDocType('AADHAAR');
-                    }}
-                  >
-                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Persistent PAN Card if uploaded */}
-            {panDoc && (
-              <View style={[styles.uploadedCard, aadhaarDoc && { marginTop: 10 }]}>
-                <View style={styles.uploadedLeft}>
-                  <View style={styles.checkCircle}>
-                    <MaterialCommunityIcons name="check" size={16} color="#059669" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.uploadedType}>PAN Card Uploaded</Text>
-                    <Text style={styles.uploadedName} numberOfLines={1}>
-                      {panDoc.fileName}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.uploadedActions}>
-                  <TouchableOpacity
-                    style={styles.changeBtn}
-                    onPress={() => {
-                      setTargetDocType('PAN_CARD');
-                      setShowPickerModal(true);
-                    }}
-                  >
-                    <Text style={styles.changeBtnText}>Change</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.removeBtn}
-                    onPress={() => {
-                      setPanDoc(null);
-                      setSelectedDocType('PAN_CARD');
-                    }}
-                  >
-                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Uploading progress indicator */}
-            {isUploadingDoc && (
-              <View style={[styles.uploadingBox, (aadhaarDoc || panDoc) && { marginTop: 10 }]}>
+            {isUploadingDoc && targetDocType !== 'QUALIFICATION_DOC' && (
+              <View style={styles.uploadingInline}>
                 <ActivityIndicator color={COLORS.primary} size="small" />
-                <Text style={styles.uploadingText}>
-                  Attaching {targetDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'}...
-                </Text>
+                <Text style={styles.uploadingInlineText}>Uploading...</Text>
               </View>
             )}
 
-            {/* Dashed upload box for currently selected tab if that tab is not yet uploaded */}
-            {!isUploadingDoc && ((selectedDocType === 'AADHAAR' && !aadhaarDoc) || (selectedDocType === 'PAN_CARD' && !panDoc)) && (
-              <TouchableOpacity
-                style={[styles.uploadBox, (aadhaarDoc || panDoc) && { marginTop: 10 }]}
-                onPress={() => {
-                  setTargetDocType(selectedDocType);
-                  setShowPickerModal(true);
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.uploadIconCircle}>
-                  <MaterialCommunityIcons
-                    name="cloud-upload-outline"
-                    size={24}
-                    color={COLORS.primary}
-                  />
-                </View>
-                <Text style={styles.uploadBoxTitle}>
-                  Upload {selectedDocType === 'AADHAAR' ? 'Aadhaar Card *' : 'PAN Card'}
-                </Text>
-                <Text style={styles.uploadBoxSub}>
-                  {selectedDocType === 'AADHAAR' ? 'Camera, Photo Gallery, or PDF file' : 'Optional • Camera, Photo Gallery, or PDF file'}
-                </Text>
+            {renderDocRow('AADHAAR', 'Aadhaar Card', aadhaarDoc, false)}
+            {renderDocRow('PAN_CARD', 'PAN Card', panDoc, false)}
+            {renderDocRow('DRIVING_LICENSE', 'Driving License', dlDoc, false)}
+          </View>
+
+          {/* Qualification Section moved to bottom */}
+          <View style={[styles.docSection, { marginTop: 4 }]}>
+            <View style={styles.docSectionHeader}>
+              <MaterialCommunityIcons name="certificate-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.docSectionTitle}>Qualification / Certification *</Text>
+            </View>
+            <Text style={styles.docSectionSubtitle}>Select qualification and upload proof</Text>
+
+            <View style={[styles.docTypeSelector, { marginBottom: 10 }]}>
+              <TouchableOpacity style={[styles.docTypeTab, qualType === 'DMLT' && styles.docTypeTabActive]} onPress={() => setQualType('DMLT')} activeOpacity={0.8}>
+                <MaterialCommunityIcons name="school-outline" size={16} color={qualType === 'DMLT' ? COLORS.primary : '#64748B'} />
+                <Text style={[styles.docTypeTabText, qualType === 'DMLT' && styles.docTypeTabTextActive]}>DMLT</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.docTypeTab, qualType === 'BMLT' && styles.docTypeTabActive]} onPress={() => setQualType('BMLT')} activeOpacity={0.8}>
+                <MaterialCommunityIcons name="school" size={16} color={qualType === 'BMLT' ? COLORS.primary : '#64748B'} />
+                <Text style={[styles.docTypeTabText, qualType === 'BMLT' && styles.docTypeTabTextActive]}>BMLT</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.docTypeTab, qualType === 'OTHER' && styles.docTypeTabActive]} onPress={() => setQualType('OTHER')} activeOpacity={0.8}>
+                <MaterialCommunityIcons name="certificate-outline" size={16} color={qualType === 'OTHER' ? COLORS.primary : '#64748B'} />
+                <Text style={[styles.docTypeTabText, qualType === 'OTHER' && styles.docTypeTabTextActive]}>Other</Text>
+              </TouchableOpacity>
+            </View>
+
+            {qualType === 'OTHER' && (
+              <View style={[styles.inputWrap, { marginBottom: 12 }]}>
+                <MaterialCommunityIcons name="certificate-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                <TextInput style={styles.input} placeholder="Specify Qualification (e.g. CMLT)" placeholderTextColor="#94A3B8" value={otherQualification} onChangeText={setOtherQualification} />
+              </View>
             )}
+
+            {isUploadingDoc && targetDocType === 'QUALIFICATION_DOC' && (
+              <View style={styles.uploadingInline}>
+                <ActivityIndicator color={COLORS.primary} size="small" />
+                <Text style={styles.uploadingInlineText}>Uploading...</Text>
+              </View>
+            )}
+            {renderDocRow('QUALIFICATION_DOC', 'Qualification Photo', qualDoc, false)}
           </View>
 
           {serverError && (
@@ -532,53 +378,31 @@ export default function PhlebotomistRegisterScreen() {
         </View>
 
         <Text style={styles.copyright}>© {new Date().getFullYear()} MedsSeva Healthcare. All rights reserved.</Text>
-      </ScreenWrapper>
+      </ScrollView>
 
       {/* Upload Source Selection Modal */}
-      <Modal
-        visible={showPickerModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPickerModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPickerModal(false)}
-        >
+      <Modal visible={showPickerModal} transparent animationType="fade" onRequestClose={() => setShowPickerModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowPickerModal(false)}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Upload {targetDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'}</Text>
-
-              <TouchableOpacity onPress={() => setShowPickerModal(false)}>
+              <Text style={styles.modalTitle}>Upload {getModalTitle()}</Text>
+              <TouchableOpacity onPress={() => setShowPickerModal(false)} style={{ padding: 4 }}>
                 <MaterialCommunityIcons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSub}>Select a source to upload government ID document</Text>
+            <Text style={styles.modalSub}>Select a source to upload document</Text>
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handlePickDocument('camera')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
-                <MaterialCommunityIcons name="camera-outline" size={22} color="#2563EB" />
-              </View>
+            <TouchableOpacity style={styles.modalOption} onPress={() => handlePickDocument('camera')} activeOpacity={0.7}>
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}><MaterialCommunityIcons name="camera-outline" size={22} color="#2563EB" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionTitle}>Take Photo</Text>
-                <Text style={styles.modalOptionDesc}>Capture ID using device camera</Text>
+                <Text style={styles.modalOptionDesc}>Capture using device camera</Text>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handlePickDocument('gallery')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#F0FDF4' }]}>
-                <MaterialCommunityIcons name="image-outline" size={22} color="#16A34A" />
-              </View>
+            <TouchableOpacity style={styles.modalOption} onPress={() => handlePickDocument('gallery')} activeOpacity={0.7}>
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#F0FDF4' }]}><MaterialCommunityIcons name="image-outline" size={22} color="#16A34A" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionTitle}>Choose from Gallery</Text>
                 <Text style={styles.modalOptionDesc}>Pick existing photo from gallery</Text>
@@ -586,14 +410,8 @@ export default function PhlebotomistRegisterScreen() {
               <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handlePickDocument('document')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#FAF5FF' }]}>
-                <MaterialCommunityIcons name="file-document-outline" size={22} color="#9333EA" />
-              </View>
+            <TouchableOpacity style={styles.modalOption} onPress={() => handlePickDocument('document')} activeOpacity={0.7}>
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#FAF5FF' }]}><MaterialCommunityIcons name="file-document-outline" size={22} color="#9333EA" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionTitle}>Upload PDF / File</Text>
                 <Text style={styles.modalOptionDesc}>Browse documents & PDF files</Text>
@@ -601,10 +419,7 @@ export default function PhlebotomistRegisterScreen() {
               <MaterialCommunityIcons name="chevron-right" size={20} color="#94A3B8" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.modalCancelBtn}
-              onPress={() => setShowPickerModal(false)}
-            >
+            <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowPickerModal(false)}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -651,287 +466,75 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 4,
   },
-  docSectionHeader: {
+  docSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  docSectionTitle: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
+  docSectionSubtitle: { fontSize: 11, color: '#64748B', marginBottom: 12 },
+  
+  // Inline Document Row
+  inlineDocRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  docSectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  docSectionSubtitle: {
-    fontSize: 11,
-    color: '#64748B',
-    marginBottom: 12,
-  },
-  docItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  docItemLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-  },
-  docMiniBadge: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginLeft: 4,
-  },
-  docMiniBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#15803D',
-  },
-  docTypeSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  docTypeTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
+    backgroundColor: '#fff',
     paddingHorizontal: 12,
+    paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  docTypeTabActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: '#F0FDFA',
-  },
-  docTypeTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
-  },
-  docTypeTabTextActive: {
-    color: COLORS.primary,
-    fontWeight: '800',
-  },
-  docTypeTabUploaded: {
-    borderColor: '#10B981',
-    backgroundColor: '#F0FDF4',
-  },
-  docTypeTabTextUploaded: {
-    color: '#047857',
-  },
-  docStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-  },
-  docStatusText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#15803D',
-    flex: 1,
-  },
-  uploadBox: {
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
-    paddingVertical: 18,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#F0FDFA',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#E2E8F0',
     marginBottom: 8,
   },
-  uploadBoxTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
+  inlineDocTitle: { fontSize: 12, fontWeight: '700', color: '#1E293B', marginBottom: 2 },
+  inlineDocSub: { fontSize: 10, color: '#94A3B8' },
+  inlineDocFileName: { fontSize: 10, color: '#059669', fontWeight: '600' },
+  inlineUploadBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F0FDFA', paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 6, borderWidth: 1, borderColor: '#CCFBF1'
   },
-  uploadBoxSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-  },
-  uploadingBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  uploadingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  uploadedCard: {
-    backgroundColor: '#ECFDF5',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  uploadedLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    marginRight: 8,
-  },
-  checkCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  uploadedType: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#065F46',
-  },
-  uploadedName: {
-    fontSize: 11,
-    color: '#047857',
-    marginTop: 1,
-  },
-  uploadedActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  changeBtn: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  changeBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  removeBtn: {
-    padding: 5,
-  },
+  inlineUploadBtnText: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  inlineDocActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inlineCheck: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' },
+  inlineRemoveBtn: { padding: 4 },
+  uploadingInline: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  uploadingInlineText: { fontSize: 11, color: COLORS.primary, fontWeight: '600' },
 
-  // Server error
+  docTypeSelector: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  docTypeTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#fff',
+    borderWidth: 1.5, borderColor: '#E2E8F0',
+  },
+  docTypeTabActive: { borderColor: COLORS.primary, backgroundColor: '#F0FDFA' },
+  docTypeTabText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
+  docTypeTabTextActive: { color: COLORS.primary, fontWeight: '800' },
+
   serverErrorBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12,
     borderWidth: 1, borderColor: '#FECACA', width: '100%', marginBottom: 16,
   },
   serverErrorText: { fontSize: 13, color: '#EF4444', fontWeight: '600', flex: 1 },
+
   submitBtn: {
     backgroundColor: COLORS.primary, height: 50, borderRadius: 14,
     justifyContent: 'center', alignItems: 'center', width: '100%', marginTop: 8, marginBottom: 20, ...SHADOWS.soft,
   },
   submitBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+
   loginRow: { flexDirection: 'row', marginBottom: 10 },
   loginText: { fontSize: 13, color: '#64748B' },
   loginLink: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
+
   copyright: { fontSize: 12, color: '#7A9AAA', textAlign: 'center', marginTop: 24 },
 
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  modalSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginBottom: 20,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    marginBottom: 10,
-    gap: 12,
-  },
-  modalOptionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalOptionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  modalOptionDesc: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  modalCancelBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    marginTop: 6,
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#64748B',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  modalSub: { fontSize: 13, color: '#64748B', marginBottom: 20 },
+  modalOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  modalOptionIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  modalOptionTitle: { fontSize: 15, fontWeight: '700', color: '#1E293B', marginBottom: 2 },
+  modalOptionDesc: { fontSize: 12, color: '#64748B' },
+  modalCancelBtn: { marginTop: 20, backgroundColor: '#F1F5F9', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  modalCancelText: { fontSize: 15, fontWeight: '700', color: '#334155' },
 });

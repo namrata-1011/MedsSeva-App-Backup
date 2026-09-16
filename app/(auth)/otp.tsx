@@ -113,15 +113,11 @@ export default function OTPScreen() {
     if (otpValue.length !== 4) return;
     setOtpError('');
 
-    // Enforce dummy OTP = '1234'
-    if (otpValue !== '1234') {
-      setOtpError('Invalid OTP. Please enter 1234.');
-      return;
-    }
+    // Dummy OTP enforced by backend if configured, passing value through.
 
     setIsLoading(true);
     try {
-      const loginResult = await apiService.loginWithOtp(mobileNumber, '1234');
+      const loginResult = await apiService.loginWithOtp(mobileNumber, otpValue);
       const userObj = {
         id: loginResult.user.id,
         name: loginResult.user.name,
@@ -305,10 +301,7 @@ export default function OTPScreen() {
                 </Text>
               </Text>
 
-              <View style={styles.hintBadge}>
-                <MaterialCommunityIcons name="shield-key-outline" size={16} color={PRIMARY} />
-                <Text style={styles.hintText}>Use dummy OTP: <Text style={{ fontWeight: '900', color: PRIMARY }}>1234</Text></Text>
-              </View>
+
 
               <View style={styles.otpRow}>
                 {otp.map((digit, index) => (

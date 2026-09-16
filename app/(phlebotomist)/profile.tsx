@@ -20,7 +20,7 @@ export default function PhlebotomistProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = !!(
+  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
     user?.isEmployee === true ||
     user?.phlebotomistType === 'EMPLOYEE' ||
     user?.userType === 'STAFF' ||

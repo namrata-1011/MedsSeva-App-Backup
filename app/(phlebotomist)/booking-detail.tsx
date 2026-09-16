@@ -18,7 +18,7 @@ export default function PhlebotomistBookingDetailScreen() {
   const params = useLocalSearchParams<{ id?: string; bookingData?: string }>();
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = !!(
+  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
     user?.isEmployee === true ||
     user?.phlebotomistType === 'EMPLOYEE' ||
     user?.userType === 'STAFF' ||

@@ -9,7 +9,7 @@ import { COLORS } from '../../src/theme/theme';
 export default function PhlebotomistLayout() {
   const insets = useSafeAreaInsets();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isFreelancer = !(user?.adminUser || user?.isEmployee || (user?.role === 'EXECUTIVE' && !user?.partner));
+  const isFreelancer = user?.userType === 'FREELANCER' ? true : !(user?.adminUser || user?.isEmployee || (user?.role === 'EXECUTIVE' && !user?.partner));
   const tabBarHeight = 56 + (insets.bottom > 0 ? insets.bottom : 8);
 
   return (
