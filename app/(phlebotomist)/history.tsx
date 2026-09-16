@@ -1,15 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, StatusBar
+  View, Text, StyleSheet, FlatList, ActivityIndicator,
+  RefreshControl, StatusBar
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../src/store';
+import { useFocusEffect } from 'expo-router';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
-import { showError } from '../../src/store/toastStore';
 
 interface HistoryItem {
   id: string;
@@ -24,6 +25,17 @@ interface HistoryItem {
 
 export default function PhlebotomistHistoryScreen() {
   const insets = useSafeAreaInsets();
+  const user = useSelector((s: RootState) => s.auth.user as any);
+  const isEmployee = !!(
+    user?.isEmployee === true ||
+    user?.phlebotomistType === 'EMPLOYEE' ||
+    user?.userType === 'STAFF' ||
+    user?.userType === 'EMPLOYEE' ||
+    user?.adminUser ||
+    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
+  );
+  const isFreelancer = !isEmployee;
+
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -88,13 +100,19 @@ export default function PhlebotomistHistoryScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       {/* Header with Safe Area Inset */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
-        <Text style={styles.headerTitle}>Earnings & Collection History</Text>
-        <Text style={styles.headerSub}>Real-time 30% commission payouts from delivered samples</Text>
+        <Text style={styles.headerTitle}>
+          {isFreelancer ? 'Earnings & Collection History' : 'Collection History'}
+        </Text>
+        <Text style={styles.headerSub}>
+          {isFreelancer
+            ? 'Real-time 30% commission payouts from delivered samples'
+            : 'Record of samples successfully delivered to branch laboratory'}
+        </Text>
       </View>
 
       <FlatList
         data={history}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item: any) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -102,11 +120,17 @@ export default function PhlebotomistHistoryScreen() {
           <View style={styles.earningHeroCard}>
             <View style={styles.heroTop}>
               <View>
-                <Text style={styles.heroLabel}>Total Commission Earned</Text>
-                <Text style={styles.heroAmount}>₹{totalEarnedCommission}</Text>
+                <Text style={styles.heroLabel}>
+                  {isFreelancer ? 'Total Commission Earned' : 'Total Delivered Samples'}
+                </Text>
+                <Text style={styles.heroAmount}>
+                  {isFreelancer ? `₹${totalEarnedCommission}` : `${totalDelivered} Samples`}
+                </Text>
               </View>
               <View style={styles.rateBadge}>
-                <Text style={styles.rateBadgeText}>30% Rate</Text>
+                <Text style={styles.rateBadgeText}>
+                  {isFreelancer ? '30% Rate' : (user?.branchName || 'Branch Duty')}
+                </Text>
               </View>
             </View>
 
@@ -117,14 +141,29 @@ export default function PhlebotomistHistoryScreen() {
                 <Text style={styles.heroStatVal}>{totalDelivered}</Text>
                 <Text style={styles.heroStatLbl}>Delivered Samples</Text>
               </View>
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatVal}>₹{totalBilled}</Text>
-                <Text style={styles.heroStatLbl}>Total Test Volume</Text>
-              </View>
-              <View style={styles.heroStatItem}>
-                <Text style={styles.heroStatVal}>Weekly</Text>
-                <Text style={styles.heroStatLbl}>Payout Cycle</Text>
-              </View>
+              {isFreelancer ? (
+                <>
+                  <View style={styles.heroStatItem}>
+                    <Text style={styles.heroStatVal}>₹{totalBilled}</Text>
+                    <Text style={styles.heroStatLbl}>Total Test Volume</Text>
+                  </View>
+                  <View style={styles.heroStatItem}>
+                    <Text style={styles.heroStatVal}>Weekly</Text>
+                    <Text style={styles.heroStatLbl}>Payout Cycle</Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.heroStatItem}>
+                    <Text style={styles.heroStatVal}>{user?.branchName || 'Branch Lab'}</Text>
+                    <Text style={styles.heroStatLbl}>Assigned Branch</Text>
+                  </View>
+                  <View style={styles.heroStatItem}>
+                    <Text style={[styles.heroStatVal, { color: '#059669' }]}>Verified</Text>
+                    <Text style={styles.heroStatLbl}>Lab Handover</Text>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         }
@@ -135,11 +174,15 @@ export default function PhlebotomistHistoryScreen() {
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="history" size={48} color="#CBD5E1" />
               <Text style={styles.emptyTitle}>No completed collections yet</Text>
-              <Text style={styles.emptySub}>Samples delivered to the lab will show up here along with your 30% payout.</Text>
+              <Text style={styles.emptySub}>
+                {isFreelancer
+                  ? 'Samples delivered to the lab will show up here along with your 30% payout.'
+                  : 'Samples delivered to the branch lab will show up here.'}
+              </Text>
             </View>
           )
         }
-        renderItem={({ item }) => {
+        renderItem={({ item }: { item: any }) => {
           const earned = Math.round((item.totalPaid || 800) * 0.30);
           return (
             <View style={styles.historyCard}>
@@ -148,9 +191,15 @@ export default function PhlebotomistHistoryScreen() {
                   <Text style={styles.bookingCode}>{item.bookingCode}</Text>
                   <Text style={styles.patientName}>{item.patientName}</Text>
                 </View>
-                <View style={styles.earnedTag}>
-                  <Text style={styles.earnedTagLabel}>+ ₹{earned}</Text>
-                </View>
+                {isFreelancer ? (
+                  <View style={styles.earnedTag}>
+                    <Text style={styles.earnedTagLabel}>+ ₹{earned}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.earnedTag, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                    <Text style={[styles.earnedTagLabel, { color: '#16A34A' }]}>Delivered</Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.historyCardBottom}>
@@ -163,7 +212,7 @@ export default function PhlebotomistHistoryScreen() {
                 <View style={styles.historyRow}>
                   <MaterialCommunityIcons name="calendar-check" size={14} color="#059669" />
                   <Text style={[styles.historyText, { color: '#059669', fontWeight: '700' }]}>
-                    Delivered • {new Date(item.deliveredToLabAt || item.scheduledDate || Date.now()).toLocaleDateString()}
+                    Delivered • {item.deliveredToLabAt ? new Date(item.deliveredToLabAt).toLocaleDateString() : (item.scheduledDate ? new Date(item.scheduledDate).toLocaleDateString() : 'Delivered')}
                   </Text>
                 </View>
               </View>

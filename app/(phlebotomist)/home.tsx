@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  RefreshControl, Switch, ActivityIndicator, Modal, FlatList, StatusBar, Platform
+  RefreshControl, Switch, ActivityIndicator, Modal, FlatList, StatusBar
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
@@ -40,7 +40,15 @@ export default function PhlebotomistHomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isFreelancer = !(user?.adminUser || user?.isEmployee || (user?.role === 'EXECUTIVE' && !user?.partner));
+  const isEmployee = !!(
+    user?.isEmployee === true ||
+    user?.phlebotomistType === 'EMPLOYEE' ||
+    user?.userType === 'STAFF' ||
+    user?.userType === 'EMPLOYEE' ||
+    user?.adminUser ||
+    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
+  );
+  const isFreelancer = !isEmployee;
   
   const [isAvailable, setIsAvailable] = useState(user?.partner?.isAvailable ?? true);
   const [requests, setRequests] = useState<BookingRequest[]>([]);
@@ -106,17 +114,20 @@ export default function PhlebotomistHomeScreen() {
 
       setRequests(combinedPending);
 
-      const liveTodayJobs = (statsRes?.todayJobs && statsRes.todayJobs > 0)
-        ? statsRes.todayJobs
-        : assignedList.length;
+      const liveTodayJobs = Math.max(
+        Number(statsRes?.todayJobs) || 0,
+        assignedList.length
+      );
 
-      const liveDelivered = (statsRes?.completedToday && statsRes.completedToday > 0)
-        ? statsRes.completedToday
-        : assignedList.filter((b: any) => ['DELIVERED_TO_LAB', 'PROCESSING', 'REPORT_READY', 'COMPLETED'].includes(b.status)).length;
+      const liveDelivered = Math.max(
+        Number(statsRes?.completedToday) || 0,
+        assignedList.filter((b: any) => ['DELIVERED_TO_LAB', 'PROCESSING', 'REPORT_READY', 'COMPLETED'].includes(b.status)).length
+      );
 
-      const livePending = (statsRes?.pending !== undefined && statsRes.pending > 0)
-        ? statsRes.pending
-        : (assignedList.filter((b: any) => ['ASSIGNED', 'WAITING_FOR_PARTNER', 'ACCEPTED', 'ON_THE_WAY', 'REACHED_LOCATION', 'SAMPLE_COLLECTED', 'DELIVERING_TO_BRANCH', 'PENDING'].includes(b.status)).length + combinedPending.length);
+      const livePending = Math.max(
+        Number(statsRes?.pending) || 0,
+        assignedList.filter((b: any) => ['ASSIGNED', 'WAITING_FOR_PARTNER', 'ACCEPTED', 'ON_THE_WAY', 'REACHED_LOCATION', 'SAMPLE_COLLECTED', 'DELIVERING_TO_BRANCH', 'PENDING'].includes(b.status)).length
+      );
 
       setStats({
         todayJobs: liveTodayJobs,
@@ -199,7 +210,7 @@ export default function PhlebotomistHomeScreen() {
           <View>
             <View style={[styles.roleBadge, !isFreelancer && styles.roleBadgeEmployee]}>
               <Text style={[styles.roleBadgeText, !isFreelancer && styles.roleBadgeTextEmployee]}>
-                {isFreelancer ? 'Freelance Phlebotomist' : 'In-House Staff'}
+                {isFreelancer ? 'Freelance Phlebotomist' : (user?.branchName ? `In-House Staff (${user.branchName})` : 'In-House Staff')}
               </Text>
             </View>
             <Text style={styles.userName} numberOfLines={1}>{user?.name || 'Phlebotomist'}</Text>
@@ -236,7 +247,7 @@ export default function PhlebotomistHomeScreen() {
 
       <FlatList
         data={requests}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item: any) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -247,7 +258,7 @@ export default function PhlebotomistHomeScreen() {
               <View style={styles.statRowHeader}>
                 <View style={styles.statHeaderLeft}>
                   <MaterialCommunityIcons name="calendar-check" size={20} color={COLORS.primary} />
-                  <Text style={styles.statTitle}>Today's Overview</Text>
+                  <Text style={styles.statTitle}>Today&apos;s Overview</Text>
                 </View>
                 {isFreelancer ? (
                   <View style={styles.commissionTag}>
@@ -257,7 +268,7 @@ export default function PhlebotomistHomeScreen() {
                 ) : (
                   <View style={styles.branchTag}>
                     <MaterialCommunityIcons name="office-building" size={13} color="#1E40AF" />
-                    <Text style={styles.branchTagText}>Branch Duty</Text>
+                    <Text style={styles.branchTagText}>{user?.branchName || 'Branch Duty'}</Text>
                   </View>
                 )}
               </View>
@@ -320,7 +331,7 @@ export default function PhlebotomistHomeScreen() {
             </View>
           )
         }
-        renderItem={({ item }) => {
+        renderItem={({ item }: { item: any }) => {
           const estPayout = Math.round((item.totalPaid || 800) * 0.30);
           return (
             <View style={styles.requestCard}>
@@ -351,7 +362,7 @@ export default function PhlebotomistHomeScreen() {
                 <View style={styles.detailRow}>
                   <MaterialCommunityIcons name="flask-outline" size={15} color="#64748B" />
                   <Text style={styles.detailText} numberOfLines={1}>
-                    {item.tests?.map(t => t.name).join(', ') || 'Diagnostic Investigation'}
+                    {item.tests?.map((t: any) => t.name).join(', ') || 'Diagnostic Investigation'}
                   </Text>
                 </View>
               </View>
@@ -390,7 +401,7 @@ export default function PhlebotomistHomeScreen() {
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.tipsTitle}>Sample Safety Protocol</Text>
               <Text style={styles.tipsSub}>
-                Always verify the patient's 4-digit Collection OTP before packing tubes into the cold-chain sample bag.
+                Always verify the patient&apos;s 4-digit Collection OTP before packing tubes into the cold-chain sample bag.
               </Text>
             </View>
           </View>
@@ -401,7 +412,7 @@ export default function PhlebotomistHomeScreen() {
         visible={!!declineTarget}
         title="Decline Pickup Request?"
         message="This booking will be returned to the lab partner for reassignment."
-        confirmText="Decline Job"
+        confirmLabel="Decline Job"
         onConfirm={handleDecline}
         onCancel={() => setDeclineTarget(null)}
       />

@@ -18,7 +18,15 @@ export default function PhlebotomistBookingDetailScreen() {
   const params = useLocalSearchParams<{ id?: string; bookingData?: string }>();
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isFreelancer = !(user?.adminUser || user?.isEmployee || (user?.role === 'EXECUTIVE' && !user?.partner));
+  const isEmployee = !!(
+    user?.isEmployee === true ||
+    user?.phlebotomistType === 'EMPLOYEE' ||
+    user?.userType === 'STAFF' ||
+    user?.userType === 'EMPLOYEE' ||
+    user?.adminUser ||
+    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
+  );
+  const isFreelancer = !isEmployee;
 
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +86,12 @@ export default function PhlebotomistBookingDetailScreen() {
   }, [params.id, params.bookingData]);
 
   useEffect(() => {
-    loadBooking();
+    let active = true;
+    if (active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void loadBooking();
+    }
+    return () => { active = false; };
   }, [loadBooking]);
 
   const openBranchModal = async () => {
@@ -309,7 +322,7 @@ export default function PhlebotomistBookingDetailScreen() {
           <View style={styles.slotRow}>
             <MaterialCommunityIcons name="calendar-clock" size={16} color="#64748B" />
             <Text style={styles.slotText}>
-              Slot: {booking.scheduledSlot || 'Standard Slot'} ({new Date(booking.scheduledDate || Date.now()).toLocaleDateString()})
+              Slot: {booking.scheduledSlot || 'Standard Slot'} ({booking.scheduledDate ? new Date(booking.scheduledDate).toLocaleDateString() : 'Scheduled'})
             </Text>
           </View>
         </View>
@@ -424,12 +437,7 @@ export default function PhlebotomistBookingDetailScreen() {
               <TouchableOpacity
                 style={[styles.primaryActionBtn, { backgroundColor: '#7C3AED' }]}
                 disabled={actionLoading}
-                onPress={() => {
-                  router.push({
-                    pathname: '/partner-flow/select-branch',
-                    params: { bookingId: booking.id },
-                  } as any);
-                }}
+                onPress={openBranchModal}
               >
                 <MaterialCommunityIcons name="hospital-building" size={20} color="#FFF" />
                 <Text style={styles.primaryActionBtnText}>4. Select Delivery Branch</Text>
@@ -454,15 +462,10 @@ export default function PhlebotomistBookingDetailScreen() {
             <TouchableOpacity
               style={[styles.primaryActionBtn, { backgroundColor: '#006D6F' }]}
               disabled={actionLoading}
-              onPress={() => {
-                router.push({
-                  pathname: '/partner-flow/deliver-sample',
-                  params: { bookingId: booking.id },
-                } as any);
-              }}
+              onPress={handleConfirmBranchDelivery}
             >
               <MaterialCommunityIcons name="truck-delivery-outline" size={20} color="#FFF" />
-              <Text style={styles.primaryActionBtnText}>5. Head to Branch & Confirm Handover</Text>
+              <Text style={styles.primaryActionBtnText}>5. Confirm Sample Handover at Lab</Text>
             </TouchableOpacity>
           )}
 

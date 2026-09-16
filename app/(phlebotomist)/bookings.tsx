@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, Linking, StatusBar
@@ -45,7 +45,15 @@ export default function PhlebotomistBookingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isFreelancer = !(user?.adminUser || user?.isEmployee || (user?.role === 'EXECUTIVE' && !user?.partner));
+  const isEmployee = !!(
+    user?.isEmployee === true ||
+    user?.phlebotomistType === 'EMPLOYEE' ||
+    user?.userType === 'STAFF' ||
+    user?.userType === 'EMPLOYEE' ||
+    user?.adminUser ||
+    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
+  );
+  const isFreelancer = !isEmployee;
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [filter, setFilter] = useState<'ALL' | 'ACTIVE' | 'COLLECTED' | 'DELIVERED'>('ALL');
@@ -235,7 +243,7 @@ export default function PhlebotomistBookingsScreen() {
 
       <FlatList
         data={filteredBookings}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item: any) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -250,7 +258,7 @@ export default function PhlebotomistBookingsScreen() {
             </View>
           )
         }
-        renderItem={({ item }) => {
+        renderItem={({ item }: { item: any }) => {
           const statusConf = STATUS_CONFIG[item.status] || { label: item.status, bg: '#F1F5F9', text: '#475569' };
           const estCommission = Math.round((item.totalPaid || 800) * 0.30);
           const nextLabel = getNextStatusLabel(item.status, item.paymentStatus);
@@ -285,7 +293,7 @@ export default function PhlebotomistBookingsScreen() {
                 <View style={styles.detailRow}>
                   <MaterialCommunityIcons name="test-tube" size={15} color={COLORS.primary} />
                   <Text style={styles.detailText} numberOfLines={1}>
-                    {item.tests?.map((t) => t.name).join(', ') || 'Standard Lab Panel'}
+                    {item.tests?.map((t: any) => t.name).join(', ') || 'Standard Lab Panel'}
                   </Text>
                 </View>
               </View>
@@ -368,7 +376,7 @@ export default function PhlebotomistBookingsScreen() {
         visible={!!declineTarget}
         title="Decline Job?"
         message="This pickup will be returned to the branch for reassignment."
-        confirmText="Confirm Decline"
+        confirmLabel="Confirm Decline"
         onConfirm={handleDecline}
         onCancel={() => setDeclineTarget(null)}
       />

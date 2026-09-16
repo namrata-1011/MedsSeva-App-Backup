@@ -160,6 +160,15 @@ acceptBooking: (bookingId: string) => api.patch(`/partner/bookings/${bookingId}/
 acceptLabBooking: (bookingId: string) => api.patch(`/bookings/${bookingId}/accept-lab`).then(res => res.data),
   patientReachedLab: (bookingId: string) => api.patch(`/bookings/${bookingId}/patient-reached`).then(res => res.data),
   rejectLabBooking: (bookingId: string, reason?: string) => api.patch(`/bookings/${bookingId}/reject-lab`, { reason }).then(res => res.data),
+  rejectBooking: async (bookingId: string, reason?: string) => {
+    try {
+      const res = await api.patch(`/partner/bookings/${bookingId}/reject`, { reason });
+      return res.data;
+    } catch {
+      const fallbackRes = await api.patch(`/bookings/${bookingId}/reject-lab`, { reason });
+      return fallbackRes.data;
+    }
+  },
   updateBookingStatus: async (bookingId: string, status: string, note?: string) => {
     try {
       const res = await api.patch(`/partner/bookings/${bookingId}/status`, { status, note });

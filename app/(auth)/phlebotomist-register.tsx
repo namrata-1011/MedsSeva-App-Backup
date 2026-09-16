@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, StatusBar, Platform, Modal, Image
+  ActivityIndicator, StatusBar, Platform, Modal
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { useRouter } from 'expo-router';
@@ -20,22 +20,21 @@ export default function PhlebotomistRegisterScreen() {
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [qualification, setQualification] = useState('');
+  type QualType = 'DMLT' | 'BMLT' | 'OTHER';
+  const [qualType, setQualType] = useState<QualType>('DMLT');
+  const [otherQualification, setOtherQualification] = useState('');
+  const [otherDetails, setOtherDetails] = useState('');
   const [experience, setExperience] = useState('');
   const [serviceArea, setServiceArea] = useState('');
-  const [address, setAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Government ID upload state
+  // Government ID upload state — separate independent states for Aadhaar (mandatory) and PAN (optional)
+  type DocEntry = { documentType: GovtDocType; fileName: string; fileUrl: string; mimeType?: string; fileSize?: number; };
   const [selectedDocType, setSelectedDocType] = useState<GovtDocType>('AADHAAR');
-  const [uploadedDoc, setUploadedDoc] = useState<{
-    documentType: GovtDocType;
-    fileName: string;
-    fileUrl: string;
-    mimeType?: string;
-    fileSize?: number;
-  } | null>(null);
+  const [aadhaarDoc, setAadhaarDoc] = useState<DocEntry | null>(null);
+  const [panDoc, setPanDoc] = useState<DocEntry | null>(null);
+  const [targetDocType, setTargetDocType] = useState<GovtDocType>('AADHAAR');
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [showPickerModal, setShowPickerModal] = useState(false);
 
@@ -67,7 +66,7 @@ export default function PhlebotomistRegisterScreen() {
         }
         const a = res.assets[0];
         fileUri = a.uri;
-        fileName = a.fileName || `${selectedDocType}_doc.jpg`;
+        fileName = a.fileName || `${targetDocType}_doc.jpg`;
         mimeType = a.mimeType || 'image/jpeg';
         fileSize = a.fileSize || 0;
       } else if (source === 'gallery') {
@@ -87,7 +86,7 @@ export default function PhlebotomistRegisterScreen() {
         }
         const a = res.assets[0];
         fileUri = a.uri;
-        fileName = a.fileName || `${selectedDocType}_doc.jpg`;
+        fileName = a.fileName || `${targetDocType}_doc.jpg`;
         mimeType = a.mimeType || 'image/jpeg';
         fileSize = a.fileSize || 0;
       } else if (source === 'document') {
@@ -101,7 +100,7 @@ export default function PhlebotomistRegisterScreen() {
         }
         const a = res.assets[0];
         fileUri = a.uri;
-        fileName = a.name || `${selectedDocType}_doc.pdf`;
+        fileName = a.name || `${targetDocType}_doc.pdf`;
         mimeType = a.mimeType || 'application/pdf';
         fileSize = a.size || 0;
       }
@@ -112,7 +111,7 @@ export default function PhlebotomistRegisterScreen() {
           fileUri,
           mimeType,
           fileName,
-          selectedDocType
+          targetDocType
         );
         if (uploadRes?.document?.fileUrl) {
           fileUrl = uploadRes.document.fileUrl;
@@ -121,14 +120,30 @@ export default function PhlebotomistRegisterScreen() {
         console.warn('Document server upload fallback to local URI:', uploadErr);
       }
 
-      setUploadedDoc({
-        documentType: selectedDocType,
+      const docEntry: DocEntry = {
+        documentType: targetDocType,
         fileName,
         fileUrl,
         mimeType,
         fileSize,
-      });
-      showSuccess(`${selectedDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'} attached!`);
+      };
+
+      if (targetDocType === 'AADHAAR') {
+        setAadhaarDoc(docEntry);
+        if (panDoc) {
+          showSuccess('Aadhaar Card and PAN Card attached!');
+        } else {
+          showSuccess('Aadhaar Card attached!');
+          setSelectedDocType('PAN_CARD');
+        }
+      } else {
+        setPanDoc(docEntry);
+        if (aadhaarDoc) {
+          showSuccess('Aadhaar Card and PAN Card attached!');
+        } else {
+          showSuccess('PAN Card attached!');
+        }
+      }
     } catch (err: any) {
       console.error('Document selection error:', err);
       setServerError('Failed to attach document. Please try again.');
@@ -156,15 +171,21 @@ export default function PhlebotomistRegisterScreen() {
       setServerError('Password must be at least 6 characters long.');
       return;
     }
-    if (!qualification.trim()) {
-      setServerError('Please enter your Qualification / Certification.');
+    const finalQual = qualType === 'DMLT' ? 'DMLT' : qualType === 'BMLT' ? 'BMLT' : otherQualification.trim();
+    if (qualType === 'OTHER' && !finalQual) {
+      setServerError('Please specify your qualification.');
       return;
     }
 
-    // Government ID is required: Either Aadhaar or PAN
-    if (!uploadedDoc || !uploadedDoc.fileUrl) {
-      setServerError('Please select and upload Government ID (Aadhaar Card or PAN Card).');
+    // Aadhaar Card is MUST (Required), PAN Card is OPTIONAL
+    if (!aadhaarDoc || !aadhaarDoc.fileUrl) {
+      setServerError('Aadhaar Card is required. Please upload your Aadhaar Card.');
       return;
+    }
+
+    const docsList: DocEntry[] = [aadhaarDoc];
+    if (panDoc && panDoc.fileUrl) {
+      docsList.push(panDoc);
     }
 
     setIsLoading(true);
@@ -174,17 +195,12 @@ export default function PhlebotomistRegisterScreen() {
         email: email.trim() || undefined,
         mobile: cleanMobile,
         password,
-        qualification: qualification.trim(),
+        qualification: finalQual,
+        otherDetails: otherDetails.trim() || undefined,
         experience: experience.trim(),
         serviceArea: serviceArea.trim(),
-        address: address.trim() || serviceArea.trim() || 'Independent',
-        document: {
-          documentType: uploadedDoc.documentType,
-          fileName: uploadedDoc.fileName,
-          fileUrl: uploadedDoc.fileUrl,
-          mimeType: uploadedDoc.mimeType,
-          fileSize: uploadedDoc.fileSize,
-        },
+        address: serviceArea.trim() || 'Independent',
+        documents: docsList,
       });
 
       router.replace('/(auth)/phlebotomist-pending');
@@ -236,9 +252,76 @@ export default function PhlebotomistRegisterScreen() {
           </View>
 
           <Text style={styles.fieldLabel}>Qualification / Certification *</Text>
+          <View style={[styles.docTypeSelector, { marginBottom: 10 }]}>
+            <TouchableOpacity
+              style={[styles.docTypeTab, qualType === 'DMLT' && styles.docTypeTabActive]}
+              onPress={() => setQualType('DMLT')}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="school-outline"
+                size={16}
+                color={qualType === 'DMLT' ? COLORS.primary : '#64748B'}
+              />
+              <Text style={[styles.docTypeTabText, qualType === 'DMLT' && styles.docTypeTabTextActive]}>
+                DMLT
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.docTypeTab, qualType === 'BMLT' && styles.docTypeTabActive]}
+              onPress={() => setQualType('BMLT')}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="school"
+                size={16}
+                color={qualType === 'BMLT' ? COLORS.primary : '#64748B'}
+              />
+              <Text style={[styles.docTypeTabText, qualType === 'BMLT' && styles.docTypeTabTextActive]}>
+                BMLT
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.docTypeTab, qualType === 'OTHER' && styles.docTypeTabActive]}
+              onPress={() => setQualType('OTHER')}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons
+                name="certificate-outline"
+                size={16}
+                color={qualType === 'OTHER' ? COLORS.primary : '#64748B'}
+              />
+              <Text style={[styles.docTypeTabText, qualType === 'OTHER' && styles.docTypeTabTextActive]}>
+                Other
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {qualType === 'OTHER' && (
+            <View style={[styles.inputWrap, { marginBottom: 12 }]}>
+              <MaterialCommunityIcons name="certificate-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Specify Qualification (e.g. B.Sc MLT / CMLT)"
+                placeholderTextColor="#94A3B8"
+                value={otherQualification}
+                onChangeText={setOtherQualification}
+              />
+            </View>
+          )}
+
+          <Text style={styles.fieldLabel}>Other Details / Specialization (Optional)</Text>
           <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="certificate-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="e.g. DMLT / B.Sc MLT" placeholderTextColor="#94A3B8" value={qualification} onChangeText={setQualification} />
+            <MaterialCommunityIcons name="text-box-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. Pediatric collection, ICU sampling, etc."
+              placeholderTextColor="#94A3B8"
+              value={otherDetails}
+              onChangeText={setOtherDetails}
+            />
           </View>
 
           <Text style={styles.fieldLabel}>Years of Experience</Text>
@@ -259,102 +342,167 @@ export default function PhlebotomistRegisterScreen() {
               <MaterialCommunityIcons name="card-account-details-outline" size={18} color={COLORS.primary} />
               <Text style={styles.docSectionTitle}>Government ID Proof *</Text>
             </View>
-            <Text style={styles.docSectionSubtitle}>Select ID type and upload Aadhaar Card or PAN Card proof</Text>
+            <Text style={styles.docSectionSubtitle}>
+              Select ID type and upload Aadhaar Card or PAN Card proof
+            </Text>
 
-            {/* Document Selector Pills */}
+            {/* Document Type Selector Tabs */}
             <View style={styles.docTypeSelector}>
               <TouchableOpacity
-                style={[styles.docTypeTab, selectedDocType === 'AADHAAR' && styles.docTypeTabActive]}
-                onPress={() => {
-                  setSelectedDocType('AADHAAR');
-                  if (uploadedDoc && uploadedDoc.documentType !== 'AADHAAR') {
-                    setUploadedDoc(null);
-                  }
-                }}
-                activeOpacity={0.8}
+                style={[
+                  styles.docTypeTab,
+                  selectedDocType === 'AADHAAR' && styles.docTypeTabActive,
+                  aadhaarDoc && styles.docTypeTabUploaded,
+                ]}
+                onPress={() => setSelectedDocType('AADHAAR')}
               >
                 <MaterialCommunityIcons
                   name="card-account-details"
-                  size={16}
-                  color={selectedDocType === 'AADHAAR' ? COLORS.primary : '#64748B'}
+                  size={18}
+                  color={selectedDocType === 'AADHAAR' ? COLORS.primary : aadhaarDoc ? '#047857' : '#64748B'}
                 />
-                <Text style={[styles.docTypeTabText, selectedDocType === 'AADHAAR' && styles.docTypeTabTextActive]}>
+                <Text
+                  style={[
+                    styles.docTypeTabText,
+                    selectedDocType === 'AADHAAR' && styles.docTypeTabTextActive,
+                    aadhaarDoc && styles.docTypeTabTextUploaded,
+                  ]}
+                >
                   Aadhaar Card
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.docTypeTab, selectedDocType === 'PAN_CARD' && styles.docTypeTabActive]}
-                onPress={() => {
-                  setSelectedDocType('PAN_CARD');
-                  if (uploadedDoc && uploadedDoc.documentType !== 'PAN_CARD') {
-                    setUploadedDoc(null);
-                  }
-                }}
-                activeOpacity={0.8}
+                style={[
+                  styles.docTypeTab,
+                  selectedDocType === 'PAN_CARD' && styles.docTypeTabActive,
+                  panDoc && styles.docTypeTabUploaded,
+                ]}
+                onPress={() => setSelectedDocType('PAN_CARD')}
               >
                 <MaterialCommunityIcons
                   name="credit-card-outline"
-                  size={16}
-                  color={selectedDocType === 'PAN_CARD' ? COLORS.primary : '#64748B'}
+                  size={18}
+                  color={selectedDocType === 'PAN_CARD' ? COLORS.primary : panDoc ? '#047857' : '#64748B'}
                 />
-                <Text style={[styles.docTypeTabText, selectedDocType === 'PAN_CARD' && styles.docTypeTabTextActive]}>
+                <Text
+                  style={[
+                    styles.docTypeTabText,
+                    selectedDocType === 'PAN_CARD' && styles.docTypeTabTextActive,
+                    panDoc && styles.docTypeTabTextUploaded,
+                  ]}
+                >
                   PAN Card
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Document Upload Status / Box */}
-            {isUploadingDoc ? (
-              <View style={styles.uploadingBox}>
-                <ActivityIndicator color={COLORS.primary} size="small" />
-                <Text style={styles.uploadingText}>Attaching document...</Text>
-              </View>
-            ) : uploadedDoc ? (
+            {/* Persistent Aadhaar Card if uploaded */}
+            {aadhaarDoc && (
               <View style={styles.uploadedCard}>
                 <View style={styles.uploadedLeft}>
                   <View style={styles.checkCircle}>
                     <MaterialCommunityIcons name="check" size={16} color="#059669" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.uploadedType}>
-                      {uploadedDoc.documentType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'} Uploaded
-                    </Text>
+                    <Text style={styles.uploadedType}>Aadhaar Card Uploaded</Text>
                     <Text style={styles.uploadedName} numberOfLines={1}>
-                      {uploadedDoc.fileName}
+                      {aadhaarDoc.fileName}
                     </Text>
                   </View>
                 </View>
-
                 <View style={styles.uploadedActions}>
                   <TouchableOpacity
                     style={styles.changeBtn}
-                    onPress={() => setShowPickerModal(true)}
+                    onPress={() => {
+                      setTargetDocType('AADHAAR');
+                      setShowPickerModal(true);
+                    }}
                   >
                     <Text style={styles.changeBtnText}>Change</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.removeBtn}
-                    onPress={() => setUploadedDoc(null)}
+                    onPress={() => {
+                      setAadhaarDoc(null);
+                      setSelectedDocType('AADHAAR');
+                    }}
                   >
-                    <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" />
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#EF4444" />
                   </TouchableOpacity>
                 </View>
               </View>
-            ) : (
+            )}
+
+            {/* Persistent PAN Card if uploaded */}
+            {panDoc && (
+              <View style={[styles.uploadedCard, aadhaarDoc && { marginTop: 10 }]}>
+                <View style={styles.uploadedLeft}>
+                  <View style={styles.checkCircle}>
+                    <MaterialCommunityIcons name="check" size={16} color="#059669" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.uploadedType}>PAN Card Uploaded</Text>
+                    <Text style={styles.uploadedName} numberOfLines={1}>
+                      {panDoc.fileName}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.uploadedActions}>
+                  <TouchableOpacity
+                    style={styles.changeBtn}
+                    onPress={() => {
+                      setTargetDocType('PAN_CARD');
+                      setShowPickerModal(true);
+                    }}
+                  >
+                    <Text style={styles.changeBtnText}>Change</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() => {
+                      setPanDoc(null);
+                      setSelectedDocType('PAN_CARD');
+                    }}
+                  >
+                    <MaterialCommunityIcons name="trash-can-outline" size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Uploading progress indicator */}
+            {isUploadingDoc && (
+              <View style={[styles.uploadingBox, (aadhaarDoc || panDoc) && { marginTop: 10 }]}>
+                <ActivityIndicator color={COLORS.primary} size="small" />
+                <Text style={styles.uploadingText}>
+                  Attaching {targetDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'}...
+                </Text>
+              </View>
+            )}
+
+            {/* Dashed upload box for currently selected tab if that tab is not yet uploaded */}
+            {!isUploadingDoc && ((selectedDocType === 'AADHAAR' && !aadhaarDoc) || (selectedDocType === 'PAN_CARD' && !panDoc)) && (
               <TouchableOpacity
-                style={styles.uploadBox}
-                onPress={() => setShowPickerModal(true)}
+                style={[styles.uploadBox, (aadhaarDoc || panDoc) && { marginTop: 10 }]}
+                onPress={() => {
+                  setTargetDocType(selectedDocType);
+                  setShowPickerModal(true);
+                }}
                 activeOpacity={0.8}
               >
                 <View style={styles.uploadIconCircle}>
-                  <MaterialCommunityIcons name="cloud-upload-outline" size={24} color={COLORS.primary} />
+                  <MaterialCommunityIcons
+                    name="cloud-upload-outline"
+                    size={24}
+                    color={COLORS.primary}
+                  />
                 </View>
                 <Text style={styles.uploadBoxTitle}>
-                  Upload {selectedDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'}
+                  Upload {selectedDocType === 'AADHAAR' ? 'Aadhaar Card *' : 'PAN Card'}
                 </Text>
                 <Text style={styles.uploadBoxSub}>
-                  Camera, Photo Gallery, or PDF file
+                  {selectedDocType === 'AADHAAR' ? 'Camera, Photo Gallery, or PDF file' : 'Optional • Camera, Photo Gallery, or PDF file'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -400,7 +548,8 @@ export default function PhlebotomistRegisterScreen() {
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Upload {selectedDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'}</Text>
+              <Text style={styles.modalTitle}>Upload {targetDocType === 'AADHAAR' ? 'Aadhaar Card' : 'PAN Card'}</Text>
+
               <TouchableOpacity onPress={() => setShowPickerModal(false)}>
                 <MaterialCommunityIcons name="close" size={20} color="#64748B" />
               </TouchableOpacity>
@@ -518,6 +667,29 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 12,
   },
+  docItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  docItemLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  docMiniBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  docMiniBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803D',
+  },
   docTypeSelector: {
     flexDirection: 'row',
     gap: 8,
@@ -548,6 +720,31 @@ const styles = StyleSheet.create({
   docTypeTabTextActive: {
     color: COLORS.primary,
     fontWeight: '800',
+  },
+  docTypeTabUploaded: {
+    borderColor: '#10B981',
+    backgroundColor: '#F0FDF4',
+  },
+  docTypeTabTextUploaded: {
+    color: '#047857',
+  },
+  docStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  docStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#15803D',
+    flex: 1,
   },
   uploadBox: {
     backgroundColor: '#fff',

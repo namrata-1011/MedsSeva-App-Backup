@@ -12,7 +12,7 @@ import { RootState } from '../../src/store';
 import { logout } from '../../src/store/slices/authSlice';
 import { tokenStorage } from '../../src/utils/tokenStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { COLORS, SHADOWS } from '../../src/theme/theme';
+import { SHADOWS } from '../../src/theme/theme';
 import { showSuccess } from '../../src/store/toastStore';
 
 export default function PhlebotomistProfileScreen() {
@@ -20,7 +20,15 @@ export default function PhlebotomistProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isFreelancer = !(user?.adminUser || user?.isEmployee || (user?.role === 'EXECUTIVE' && !user?.partner));
+  const isEmployee = !!(
+    user?.isEmployee === true ||
+    user?.phlebotomistType === 'EMPLOYEE' ||
+    user?.userType === 'STAFF' ||
+    user?.userType === 'EMPLOYEE' ||
+    user?.adminUser ||
+    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
+  );
+  const isFreelancer = !isEmployee;
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = () => {
@@ -35,7 +43,7 @@ export default function PhlebotomistProfileScreen() {
           onPress: async () => {
             setLoggingOut(true);
             try {
-              await tokenStorage.removeItem('token');
+              await tokenStorage.deleteItem('token');
               await AsyncStorage.removeItem('user');
               dispatch(logout());
               showSuccess('Logged out successfully');
@@ -76,28 +84,46 @@ export default function PhlebotomistProfileScreen() {
           <Text style={styles.mobileText}>{user?.mobile || user?.phone || 'Verified Executive'}</Text>
         </View>
 
-        {/* Commission & Terms Card */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Partner Terms & Payout</Text>
+        {/* Commission & Terms Card (Freelancer) vs Staff & Branch Details (Employee) */}
+        {isFreelancer ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Partner Terms & Payout</Text>
 
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="percent" size={18} color="#059669" />
-            <Text style={styles.infoLabel}>Commission Rate</Text>
-            <Text style={[styles.infoValue, { color: '#059669', fontWeight: '900' }]}>30.0% / Test</Text>
-          </View>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="percent" size={18} color="#059669" />
+              <Text style={styles.infoLabel}>Commission Rate</Text>
+              <Text style={[styles.infoValue, { color: '#059669', fontWeight: '900' }]}>30.0% / Test</Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="calendar-sync" size={18} color="#006D6F" />
-            <Text style={styles.infoLabel}>Payout Frequency</Text>
-            <Text style={styles.infoValue}>Weekly Transfer</Text>
-          </View>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="calendar-sync" size={18} color="#006D6F" />
+              <Text style={styles.infoLabel}>Payout Frequency</Text>
+              <Text style={styles.infoValue}>Weekly Transfer</Text>
+            </View>
 
-          <View style={styles.infoRow}>
-            <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
-            <Text style={styles.infoLabel}>Assigned Branch</Text>
-            <Text style={styles.infoValue}>{user?.partner?.labName || 'Central Processing Lab'}</Text>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
+              <Text style={styles.infoLabel}>Assigned Branch</Text>
+              <Text style={styles.infoValue}>{user?.partner?.labName || 'Central Processing Lab'}</Text>
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Staff & Branch Details</Text>
+
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="badge-account-horizontal-outline" size={18} color="#006D6F" />
+              <Text style={styles.infoLabel}>Designation</Text>
+              <Text style={[styles.infoValue, { color: '#0F172A', fontWeight: '700' }]}>{user?.designation || 'In-House Phlebotomist'}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
+              <Text style={styles.infoLabel}>Assigned Branch</Text>
+              <Text style={styles.infoValue}>{user?.branchName || 'Assigned Branch'}</Text>
+            </View>
+          </View>
+        )}
 
         {/* App & Support Shortcuts */}
         <View style={styles.sectionCard}>

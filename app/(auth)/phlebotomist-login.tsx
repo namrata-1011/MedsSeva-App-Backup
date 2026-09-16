@@ -42,6 +42,9 @@ export default function PhlebotomistLoginScreen() {
       const adminRole = (response.user?.adminRole || '').toLowerCase();
       const partnerRole = (response.user?.partner?.role || '').toUpperCase();
       const designation = (response.user?.designation || '').toLowerCase();
+      const department = (response.user?.department || '').toLowerCase();
+      const userName = (response.user?.name || '').toLowerCase();
+      const uType = (response.user?.userType || '').toUpperCase();
 
       // Separate Pathology Partner: Pathology Partners must not login via Phlebotomist portal
       if (uRole === 'PATHOLOGY_PARTNER' || (partnerRole && partnerRole !== 'PHLEBOTOMIST')) {
@@ -57,7 +60,13 @@ export default function PhlebotomistLoginScreen() {
         adminRole.includes('executive') ||
         adminRole.includes('phlebotomist') ||
         designation.includes('phlebotomist') ||
-        designation.includes('collector');
+        designation.includes('collector') ||
+        department.includes('phlebotom') ||
+        department.includes('sample collection') ||
+        userName.includes('phlebotomist') ||
+        userName.includes('collector') ||
+        uType === 'EMPLOYEE' ||
+        uType === 'STAFF';
 
       if (!isPhlebotomist) {
         setServerError('This login portal is strictly for Phlebotomists / Sample Collection Executives.');
@@ -67,26 +76,46 @@ export default function PhlebotomistLoginScreen() {
 
       const effectiveAppRole = 'EXECUTIVE';
 
+      const isStaffEmployee = 
+        response.user?.isEmployee === true ||
+        response.user?.phlebotomistType === 'EMPLOYEE' ||
+        response.user?.userType === 'STAFF' ||
+        response.user?.userType === 'EMPLOYEE' ||
+        !!response.user?.adminRole ||
+        !!(response.user?.designation && /phlebotomist|collector|phlebo/i.test(response.user.designation));
+
       const userObj = {
         id: response.user.id,
         name: response.user.name,
         email: response.user.email,
         mobile: response.user.mobile,
         role: effectiveAppRole,
-        partner: response.user.partner || {
-          id: response.user.id,
-          labName: `${response.user.name} (Phlebotomist)`,
-          role: 'PHLEBOTOMIST',
-          approvalStatus: 'APPROVED',
-          isAvailable: true,
-          rating: 0,
-        },
+        isEmployee: isStaffEmployee,
+        userType: response.user.userType || (isStaffEmployee ? 'STAFF' : 'INDIVIDUAL'),
+        phlebotomistType: isStaffEmployee ? 'EMPLOYEE' : 'FREELANCER',
+        designation: response.user.designation || (isStaffEmployee ? 'In-House Phlebotomist' : 'Freelance Phlebotomist'),
+        branchId: response.user.branchId || null,
+        branchName: response.user.branchName || null,
+        partner: isStaffEmployee
+          ? null
+          : (response.user.partner || {
+              id: response.user.id,
+              labName: `${response.user.name} (Phlebotomist)`,
+              role: 'PHLEBOTOMIST',
+              approvalStatus: 'APPROVED',
+              isAvailable: true,
+              rating: 0,
+            }),
       };
 
       await AsyncStorage.setItem('user', JSON.stringify(userObj));
       await tokenStorage.setItem('token', response.token);
       dispatch(loginSuccess(userObj));
-      router.replace('/(phlebotomist)/home' as any);
+      if (isStaffEmployee) {
+        router.replace('/(partner)/home');
+      } else {
+        router.replace('/(phlebotomist)/home' as any);
+      }
     } catch (error: any) {
       const err = error.response?.data;
       if (err?.pendingApproval) {
