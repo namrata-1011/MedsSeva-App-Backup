@@ -4,38 +4,29 @@ import {
   ActivityIndicator, Platform, StatusBar, TextInput,
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
-import { showError } from '../../src/store/toastStore';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { useDispatch } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { tokenStorage } from '../../src/utils/tokenStorage';
-import { loginStart, loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
-
 import { COLORS } from '../../src/theme/theme';
+
 const PRIMARY = COLORS.primary;
 
 const loginSchema = yup.object().shape({
   mobile: yup.string()
     .required('Mobile number is required')
     .matches(/^[0-9]{10}$/, 'Mobile number must be exactly 10 digits'),
-  password: yup.string()
-    .required('Password is required')
-    .min(6, 'Password must be at least 6 characters'),
 });
 
 type LoginFormData = yup.InferType<typeof loginSchema>;
 
 export default function LoginScreen() {
   const router = useRouter();
-  const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [isUnregistered, setIsUnregistered] = useState(false);
 
   const {
     control,
@@ -43,55 +34,41 @@ export default function LoginScreen() {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: yupResolver(loginSchema),
-    defaultValues: { mobile: '', password: '' },
+    defaultValues: { mobile: '' },
   });
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setServerError(null);
-    dispatch(loginStart());
+    setIsUnregistered(false);
     try {
-      const response = await apiService.login({ mobile: data.mobile, password: data.password });
-      const fullUserObj = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        mobile: response.user.mobile,
-        role: response.user.role,
-        partner: response.user.partner,
-      };
-      await AsyncStorage.setItem('user', JSON.stringify(fullUserObj));
-      await tokenStorage.setItem('token', response.token);
-      dispatch(loginSuccess(fullUserObj));
-
-      const { registerFcmToken } = await import('../../src/services/notificationService');
-      registerFcmToken().catch(console.warn);
-
-      if (response.user.role === 'PATHOLOGY_PARTNER' || response.user.role === 'EXECUTIVE') {
-        router.replace('/(partner)/home');
-      } else if (response.user.role === 'DOCTOR' || response.user.role === 'PATHOLOGIST') {
-        router.replace('/(doctor)/home' as any);
-      } else {
-        router.replace('/(tabs)');
-      }
- } catch (error: any) {
-      console.error('Login Error:', error);
-      const errData = error.response?.data;
-      if (errData?.requiresEmailVerification) {
-        router.push({
-          pathname: '/(auth)/verify-email',
-          params: { email: errData.email },
-        });
+      // Check if mobile number is registered
+      const checkRes = await apiService.checkMobile(data.mobile);
+      if (!checkRes?.exists) {
+        setIsUnregistered(true);
+        setServerError('This mobile number is not registered. Please register first.');
+        setIsLoading(false);
         return;
       }
-   const errorMsg = errData?.error || 'Failed to login. Please try again.';
+
+      // Trigger OTP send
+      await apiService.sendOtp(data.mobile).catch(() => {});
+
+      // Navigate to OTP Screen
+      router.push({
+        pathname: '/(auth)/otp',
+        params: { mobile: data.mobile },
+      });
+    } catch (error: any) {
+      console.error('Check Mobile / Send OTP Error:', error);
+      const errorMsg = error.response?.data?.error || 'Failed to verify mobile number. Please try again.';
       setServerError(errorMsg);
     } finally {
       setIsLoading(false);
     }
   };
 
-return (
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#E8F0F3" />
       <ScreenWrapper
@@ -108,11 +85,11 @@ return (
 
         <View style={styles.card}>
           <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="account-outline" size={32} color={PRIMARY} />
+            <MaterialCommunityIcons name="cellphone-check" size={32} color={PRIMARY} />
           </View>
 
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Securely access your healthcare dashboard.</Text>
+          <Text style={styles.title}>Mobile OTP Login</Text>
+          <Text style={styles.subtitle}>Enter your registered 10-digit mobile number to receive a verification OTP.</Text>
 
           <Text style={styles.fieldLabel}>Mobile Number</Text>
           <Controller
@@ -120,59 +97,45 @@ return (
             name="mobile"
             render={({ field: { onChange, value } }) => (
               <View style={[styles.inputWrap, errors.mobile && styles.inputWrapError]}>
-                <MaterialCommunityIcons name="phone-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+                <View style={styles.prefixWrap}>
+                  <Text style={styles.prefixText}>+91</Text>
+                </View>
                 <TextInput
                   style={styles.input}
                   placeholder="Enter 10 digit number"
                   placeholderTextColor="#94A3B8"
                   value={value}
-                  onChangeText={onChange}
+                  onChangeText={(val) => {
+                    onChange(val);
+                    if (serverError) setServerError(null);
+                    if (isUnregistered) setIsUnregistered(false);
+                  }}
                   keyboardType="numeric"
                   maxLength={10}
+                  autoFocus
                 />
               </View>
             )}
           />
           {errors.mobile && <Text style={styles.errorText}>{errors.mobile.message}</Text>}
 
-          <Text style={styles.fieldLabel}>Password</Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, value } }) => (
-              <View style={[styles.inputWrap, errors.password && styles.inputWrapError]}>
-                <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { flex: 1 }]}
-                  placeholder="••••••••"
-                  placeholderTextColor="#94A3B8"
-                  secureTextEntry={!showPassword}
-                  value={value}
-                  onChangeText={onChange}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <MaterialCommunityIcons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={18} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-       {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
-
           {serverError && (
             <View style={styles.serverErrorBox}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#EF4444" />
-              <Text style={styles.serverErrorText}>{serverError}</Text>
+              <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#EF4444" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.serverErrorText}>{serverError}</Text>
+                {isUnregistered && (
+                  <TouchableOpacity
+                    style={styles.registerNowBtn}
+                    onPress={() => router.push('/(auth)/register')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.registerNowBtnText}>Register an Account →</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
-
-          <View style={styles.forgotRow}>
-            <TouchableOpacity onPress={() => router.push('/(auth)/otp')}>
-              <Text style={styles.otpLink}>Login with OTP</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
 
           <TouchableOpacity
             style={[styles.loginBtn, isLoading && styles.btnDisabled]}
@@ -183,7 +146,10 @@ return (
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.loginBtnText}>Login</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.loginBtnText}>Continue</Text>
+                <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
+              </View>
             )}
           </TouchableOpacity>
 
@@ -193,13 +159,10 @@ return (
               <Text style={styles.registerLink}>Register Now</Text>
             </TouchableOpacity>
           </View>
-
-        
         </View>
 
-       
-      <Text style={[styles.copyright, { marginTop: 24 }]}>© {new Date().getFullYear()} MedsSeva Healthcare. All rights reserved.</Text>
-   <View style={styles.footerLinks}>
+        <Text style={[styles.copyright, { marginTop: 24 }]}>© {new Date().getFullYear()} MedsSeva Healthcare. All rights reserved.</Text>
+        <View style={styles.footerLinks}>
           <TouchableOpacity onPress={() => router.push({ pathname: '/legal/LegalWebView', params: { type: 'terms' } })}>
             <Text style={styles.footerLink}>Terms of Service</Text>
           </TouchableOpacity>
@@ -208,7 +171,7 @@ return (
             <Text style={styles.footerLink}>Privacy Policy</Text>
           </TouchableOpacity>
         </View>
- </ScreenWrapper>
+      </ScreenWrapper>
     </View>
   );
 }
@@ -249,15 +212,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, height: 50, marginBottom: 16, width: '100%',
   },
   inputWrapError: { borderColor: '#EF4444' },
-  inputIcon: { marginRight: 10 },
+  prefixWrap: {
+    paddingRight: 10,
+    marginRight: 8,
+    borderRightWidth: 1,
+    borderRightColor: '#CBD5E1',
+  },
+  prefixText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+  },
   input: { flex: 1, fontSize: 14, color: '#0F172A' },
-errorText: { fontSize: 12, color: '#EF4444', marginTop: -12, marginBottom: 10, alignSelf: 'flex-start' },
+  errorText: { fontSize: 12, color: '#EF4444', marginTop: -12, marginBottom: 10, alignSelf: 'flex-start' },
   serverErrorBox: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
     borderWidth: 1, borderColor: '#FECACA', width: '100%', marginBottom: 16,
   },
-  serverErrorText: { fontSize: 13, color: '#EF4444', fontWeight: '600', flex: 1 },
+  serverErrorText: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  registerNowBtn: { marginTop: 6 },
+  registerNowBtnText: { fontSize: 13, color: PRIMARY, fontWeight: '800' },
   forgotRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', width: '100%', marginBottom: 24,

@@ -16,113 +16,38 @@ import { apiService } from '../../src/services/api';
 
 export default function PhlebotomistLoginScreen() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [mobile, setMobile] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleLogin = async () => {
-    if (!identifier || !password) {
-      showInfo('Please enter your email/mobile and password.');
+  const handleContinue = async () => {
+    const cleanMobile = mobile.trim().replace(/[^0-9]/g, '');
+    if (cleanMobile.length !== 10) {
+      showInfo('Please enter a valid 10-digit mobile number.');
       return;
     }
     setIsLoading(true);
     setServerError(null);
     try {
-      const isEmail = identifier.includes('@');
-      const response = await apiService.login({
-        ...(isEmail ? { email: identifier } : { mobile: identifier }),
-        password,
+      // 1. Check if mobile number is registered
+      const checkRes = await apiService.checkMobile(cleanMobile);
+      if (!checkRes?.exists) {
+        setServerError('This mobile number is not registered with any Phlebotomist account.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Trigger dummy/backend OTP send
+      await apiService.sendOtp(cleanMobile).catch(() => {});
+
+      // 3. Navigate to OTP screen with expectedRole
+      router.push({
+        pathname: '/(auth)/otp',
+        params: { mobile: cleanMobile, expectedRole: 'EXECUTIVE' },
       });
-
-      const uRole = (response.user?.role || '').toUpperCase();
-      const adminSlug = (response.user?.adminRoleSlug || '').toLowerCase();
-      const adminRole = (response.user?.adminRole || '').toLowerCase();
-      const partnerRole = (response.user?.partner?.role || '').toUpperCase();
-      const designation = (response.user?.designation || '').toLowerCase();
-      const department = (response.user?.department || '').toLowerCase();
-      const userName = (response.user?.name || '').toLowerCase();
-      const uType = (response.user?.userType || '').toUpperCase();
-
-      // Separate Pathology Partner: Pathology Partners must not login via Phlebotomist portal
-      if (uRole === 'PATHOLOGY_PARTNER' || (partnerRole && partnerRole !== 'PHLEBOTOMIST')) {
-        setServerError('This login portal is strictly for Phlebotomists. Pathology Partners must log in via the Partner portal.');
-        setIsLoading(false);
-        return;
-      }
-
-      const isPhlebotomist =
-        uRole === 'EXECUTIVE' ||
-        partnerRole === 'PHLEBOTOMIST' ||
-        adminSlug === 'executive' ||
-        adminRole.includes('executive') ||
-        adminRole.includes('phlebotomist') ||
-        designation.includes('phlebotomist') ||
-        designation.includes('collector') ||
-        department.includes('phlebotom') ||
-        department.includes('sample collection') ||
-        userName.includes('phlebotomist') ||
-        userName.includes('collector') ||
-        uType === 'EMPLOYEE' ||
-        uType === 'STAFF';
-
-      if (!isPhlebotomist) {
-        setServerError('This login portal is strictly for Phlebotomists / Sample Collection Executives.');
-        setIsLoading(false);
-        return;
-      }
-
-      const effectiveAppRole = 'EXECUTIVE';
-
-      const isStaffEmployee = 
-        response.user?.isEmployee === true ||
-        response.user?.phlebotomistType === 'EMPLOYEE' ||
-        response.user?.userType === 'STAFF' ||
-        response.user?.userType === 'EMPLOYEE' ||
-        !!response.user?.adminRole ||
-        !!(response.user?.designation && /phlebotomist|collector|phlebo/i.test(response.user.designation));
-
-      const userObj = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        mobile: response.user.mobile,
-        role: effectiveAppRole,
-        isEmployee: isStaffEmployee,
-        userType: response.user.userType || (isStaffEmployee ? 'STAFF' : 'INDIVIDUAL'),
-        phlebotomistType: isStaffEmployee ? 'EMPLOYEE' : 'FREELANCER',
-        designation: response.user.designation || (isStaffEmployee ? 'In-House Phlebotomist' : 'Freelance Phlebotomist'),
-        branchId: response.user.branchId || null,
-        branchName: response.user.branchName || null,
-        partner: isStaffEmployee
-          ? null
-          : (response.user.partner || {
-              id: response.user.id,
-              labName: `${response.user.name} (Phlebotomist)`,
-              role: 'PHLEBOTOMIST',
-              approvalStatus: 'APPROVED',
-              isAvailable: true,
-              rating: 0,
-            }),
-      };
-
-      await AsyncStorage.setItem('user', JSON.stringify(userObj));
-      await tokenStorage.setItem('token', response.token);
-      dispatch(loginSuccess(userObj));
-      if (isStaffEmployee) {
-        router.replace('/(partner)/home');
-      } else {
-        router.replace('/(phlebotomist)/home' as any);
-      }
     } catch (error: any) {
-      const err = error.response?.data;
-      if (err?.pendingApproval) {
-        router.replace('/(auth)/phlebotomist-pending');
-        return;
-      }
-      setServerError(err?.error || 'Failed to authenticate. Please check credentials.');
+      console.error('Phlebotomist Login check error:', error);
+      setServerError(error.response?.data?.error || 'Failed to verify mobile number. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -141,29 +66,26 @@ export default function PhlebotomistLoginScreen() {
             <MaterialCommunityIcons name="needle" size={32} color={COLORS.primary} />
           </View>
           <Text style={styles.cardTitle}>Phlebotomist Login</Text>
-          <Text style={styles.cardSubtitle}>Collection Partner Portal. Access assigned home sample pickups.</Text>
+          <Text style={styles.cardSubtitle}>Enter your registered mobile number to receive a verification OTP.</Text>
 
-          <Text style={styles.fieldLabel}>Mobile Number or Email</Text>
+          <Text style={styles.fieldLabel}>Mobile Number</Text>
           <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="phone-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
+            <View style={{ paddingRight: 10, marginRight: 8, borderRightWidth: 1, borderRightColor: '#CBD5E1' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#334155' }}>+91</Text>
+            </View>
             <TextInput
-              style={styles.input} placeholder="e.g. 9876543210 or phlebo@medsseva.com"
-              placeholderTextColor="#94A3B8" value={identifier}
-              onChangeText={setIdentifier} autoCapitalize="none"
+              style={styles.input}
+              placeholder="Enter 10 digit number"
+              placeholderTextColor="#94A3B8"
+              value={mobile}
+              onChangeText={(text: string) => {
+                setMobile(text.replace(/[^0-9]/g, ''));
+                if (serverError) setServerError(null);
+              }}
+              keyboardType="numeric"
+              maxLength={10}
+              autoFocus
             />
-          </View>
-
-          <Text style={styles.fieldLabel}>Password</Text>
-          <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { flex: 1 }]} placeholder="••••••••"
-              placeholderTextColor="#94A3B8" secureTextEntry={!showPassword}
-              value={password} onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
-            </TouchableOpacity>
           </View>
 
           {serverError && (
@@ -172,21 +94,22 @@ export default function PhlebotomistLoginScreen() {
                 <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#EF4444" style={{ marginTop: 2 }} />
                 <Text style={styles.serverErrorText}>{serverError}</Text>
               </View>
-              {serverError.includes('Partner portal') && (
-                <TouchableOpacity
-                  style={styles.partnerRedirectBtn}
-                  onPress={() => router.push('/(auth)/partner-login')}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="microscope" size={14} color="#0D9488" />
-                  <Text style={styles.partnerRedirectText}>Go to Pathology Partner Login</Text>
-                </TouchableOpacity>
-              )}
             </View>
           )}
 
-          <TouchableOpacity style={[styles.loginBtn, isLoading && { opacity: 0.6 }]} onPress={handleLogin} disabled={isLoading}>
-            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Login</Text>}
+          <TouchableOpacity
+            style={[styles.loginBtn, (isLoading || mobile.length !== 10) && { opacity: 0.6 }]}
+            onPress={handleContinue}
+            disabled={isLoading || mobile.length !== 10}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.loginBtnText}>Continue</Text>
+                <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
+              </View>
+            )}
           </TouchableOpacity>
 
           <View style={styles.registerRow}>

@@ -16,10 +16,7 @@ import { apiService } from '../../src/services/api';
 
 export default function DoctorLoginScreen() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [mobile, setMobile] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -40,48 +37,34 @@ export default function DoctorLoginScreen() {
     return () => sub.remove();
   }, []);
 
-  const handleLogin = async () => {
-    const cleanIdentifier = identifier.trim();
-    if (!cleanIdentifier || !password) {
-      showInfo('Please enter your email/mobile and password.');
+  const handleContinue = async () => {
+    const cleanMobile = mobile.trim().replace(/[^0-9]/g, '');
+    if (cleanMobile.length !== 10) {
+      showInfo('Please enter a valid 10-digit mobile number.');
       return;
     }
     setIsLoading(true);
     setServerError(null);
     try {
-      const isEmail = cleanIdentifier.includes('@');
-      const response = await apiService.login({
-        ...(isEmail ? { email: cleanIdentifier.toLowerCase() } : { mobile: cleanIdentifier }),
-        identifier: cleanIdentifier,
-        password,
-      });
-
-      if (response.user.role !== 'PATHOLOGIST' && response.user.role !== 'DOCTOR' && response.user.role !== 'ADMIN') {
-        setServerError('This portal is strictly for Doctors & Pathologists.');
+      // 1. Check if mobile number is registered
+      const checkRes = await apiService.checkMobile(cleanMobile);
+      if (!checkRes?.exists) {
+        setServerError('This mobile number is not registered with any Doctor account.');
         setIsLoading(false);
         return;
       }
 
-      const userObj = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        mobile: response.user.mobile,
-        role: response.user.role,
-        doctor: response.user.doctor,
-      };
+      // 2. Trigger dummy/backend OTP send
+      await apiService.sendOtp(cleanMobile).catch(() => {});
 
-      await AsyncStorage.setItem('user', JSON.stringify(userObj));
-      await tokenStorage.setItem('token', response.token);
-      dispatch(loginSuccess(userObj));
-      router.replace('/(doctor)/home' as any);
+      // 3. Navigate to OTP screen with expectedRole
+      router.push({
+        pathname: '/(auth)/otp',
+        params: { mobile: cleanMobile, expectedRole: 'DOCTOR' },
+      });
     } catch (error: any) {
-      const err = error.response?.data;
-      if (err?.pendingApproval) {
-        router.replace('/(auth)/doctor-pending');
-        return;
-      }
-      setServerError(err?.error || 'Authentication failed. Please check credentials.');
+      console.error('Doctor Login check error:', error);
+      setServerError(error.response?.data?.error || 'Failed to verify mobile number. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -100,29 +83,26 @@ export default function DoctorLoginScreen() {
             <MaterialCommunityIcons name="stethoscope" size={32} color={COLORS.primary} />
           </View>
           <Text style={styles.cardTitle}>Doctor Portal Login</Text>
-          <Text style={styles.cardSubtitle}>Consulting Doctor & Pathologist Portal.</Text>
+          <Text style={styles.cardSubtitle}>Enter your registered mobile number to receive a verification OTP.</Text>
 
-          <Text style={styles.fieldLabel}>Email or Mobile Number</Text>
+          <Text style={styles.fieldLabel}>Mobile Number</Text>
           <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="at" size={18} color="#94A3B8" style={styles.inputIcon} />
+            <View style={{ paddingRight: 10, marginRight: 8, borderRightWidth: 1, borderRightColor: '#CBD5E1' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#334155' }}>+91</Text>
+            </View>
             <TextInput
-              style={styles.input} placeholder="doctor@medsseva.com"
-              placeholderTextColor="#94A3B8" value={identifier}
-              onChangeText={setIdentifier} autoCapitalize="none"
+              style={styles.input}
+              placeholder="Enter 10 digit number"
+              placeholderTextColor="#94A3B8"
+              value={mobile}
+              onChangeText={(text: string) => {
+                setMobile(text.replace(/[^0-9]/g, ''));
+                if (serverError) setServerError(null);
+              }}
+              keyboardType="numeric"
+              maxLength={10}
+              autoFocus
             />
-          </View>
-
-          <Text style={styles.fieldLabel}>Password</Text>
-          <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { flex: 1 }]} placeholder="••••••••"
-              placeholderTextColor="#94A3B8" secureTextEntry={!showPassword}
-              value={password} onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
-            </TouchableOpacity>
           </View>
 
           {serverError && (
@@ -132,8 +112,19 @@ export default function DoctorLoginScreen() {
             </View>
           )}
 
-          <TouchableOpacity style={[styles.loginBtn, isLoading && { opacity: 0.6 }]} onPress={handleLogin} disabled={isLoading}>
-            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Login</Text>}
+          <TouchableOpacity
+            style={[styles.loginBtn, (isLoading || mobile.length !== 10) && { opacity: 0.6 }]}
+            onPress={handleContinue}
+            disabled={isLoading || mobile.length !== 10}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.loginBtnText}>Continue</Text>
+                <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
+              </View>
+            )}
           </TouchableOpacity>
 
           <View style={styles.registerRow}>

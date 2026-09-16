@@ -16,58 +16,44 @@ import { apiService } from '../../src/services/api';
 
 export default function PartnerLoginScreen() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const [identifier, setIdentifier] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
- const [isLoading, setIsLoading] = useState(false);
+  const [mobile, setMobile] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleLogin = async () => {
-    if (!identifier || !password) {
-     showInfo('Please enter your email/mobile and password.');
+  const handleContinue = async () => {
+    const cleanMobile = mobile.trim().replace(/[^0-9]/g, '');
+    if (cleanMobile.length !== 10) {
+      showInfo('Please enter a valid 10-digit mobile number.');
       return;
     }
-  setIsLoading(true);
+    setIsLoading(true);
     setServerError(null);
     try {
-      const isEmail = identifier.includes('@');
-      const response = await apiService.login({
-        ...(isEmail ? { email: identifier } : { mobile: identifier }),
-        password,
-      });
-
-  if (response.user.role !== 'PATHOLOGY_PARTNER') {
-        setServerError('This login is only for Pathology Partners.');
+      // 1. Check if mobile number is registered
+      const checkRes = await apiService.checkMobile(cleanMobile);
+      if (!checkRes?.exists) {
+        setServerError('This mobile number is not registered with any Pathology Partner account.');
         setIsLoading(false);
         return;
       }
-      const userObj = {
-        id: response.user.id,
-        name: response.user.name,
-        email: response.user.email,
-        mobile: response.user.mobile,
-        role: response.user.role,
-        partner: response.user.partner,
-      };
 
-      await AsyncStorage.setItem('user', JSON.stringify(userObj));
-      await tokenStorage.setItem('token', response.token);
-      dispatch(loginSuccess(userObj));
-      router.replace('/(partner)/home');
+      // 2. Trigger dummy/backend OTP send
+      await apiService.sendOtp(cleanMobile).catch(() => {});
+
+      // 3. Navigate to OTP screen with expectedRole
+      router.push({
+        pathname: '/(auth)/otp',
+        params: { mobile: cleanMobile, expectedRole: 'PATHOLOGY_PARTNER' },
+      });
     } catch (error: any) {
-      const err = error.response?.data;
-    if (err?.pendingApproval) {
-        router.replace('/(auth)/partner-pending');
-        return;
-      }
-      setServerError(err?.error || 'Please try again.');
+      console.error('Partner Login check error:', error);
+      setServerError(error.response?.data?.error || 'Failed to verify mobile number. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-return (
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
       <ScreenWrapper
@@ -78,57 +64,53 @@ return (
           <MaterialCommunityIcons name="arrow-left" size={22} color="#334155" />
         </TouchableOpacity>
 
-    
-
         <View style={styles.card}>
           <View style={styles.iconCircle}>
             <MaterialCommunityIcons name="microscope" size={32} color={COLORS.primary} />
           </View>
-          <Text style={styles.cardTitle}>Pathology Partner</Text>
-          <Text style={styles.cardSubtitle}>Welcome back, specialist. Access your lab portal.</Text>
+          <Text style={styles.cardTitle}>Pathology Partner Login</Text>
+          <Text style={styles.cardSubtitle}>Enter your registered mobile number to receive a verification OTP.</Text>
 
-          <Text style={styles.fieldLabel}>Email or Mobile Number</Text>
+          <Text style={styles.fieldLabel}>Mobile Number</Text>
           <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="at" size={18} color="#94A3B8" style={styles.inputIcon} />
+            <View style={{ paddingRight: 10, marginRight: 8, borderRightWidth: 1, borderRightColor: '#CBD5E1' }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#334155' }}>+91</Text>
+            </View>
             <TextInput
-              style={styles.input} placeholder="e.g. partner@medsseva.com"
-              placeholderTextColor="#94A3B8" value={identifier}
-              onChangeText={setIdentifier} autoCapitalize="none"
+              style={styles.input}
+              placeholder="Enter 10 digit number"
+              placeholderTextColor="#94A3B8"
+              value={mobile}
+              onChangeText={(text: string) => {
+                setMobile(text.replace(/[^0-9]/g, ''));
+                if (serverError) setServerError(null);
+              }}
+              keyboardType="numeric"
+              maxLength={10}
+              autoFocus
             />
           </View>
 
-          <Text style={styles.fieldLabel}>Password</Text>
-          <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { flex: 1 }]} placeholder="••••••••"
-              placeholderTextColor="#94A3B8" secureTextEntry={!showPassword}
-              value={password} onChangeText={setPassword}
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-              <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
-            </TouchableOpacity>
-          </View>
-
-        {serverError && (
+          {serverError && (
             <View style={styles.serverErrorBox}>
               <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#EF4444" />
               <Text style={styles.serverErrorText}>{serverError}</Text>
             </View>
           )}
 
-          <TouchableOpacity style={styles.forgotBtn}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
-            style={[styles.loginBtn, isLoading && { opacity: 0.6 }]}
-            onPress={handleLogin} disabled={isLoading}
+            style={[styles.loginBtn, (isLoading || mobile.length !== 10) && { opacity: 0.6 }]}
+            onPress={handleContinue}
+            disabled={isLoading || mobile.length !== 10}
           >
-            {isLoading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.loginBtnText}>Login</Text>
-            }
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.loginBtnText}>Continue</Text>
+                <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
+              </View>
+            )}
           </TouchableOpacity>
 
           <View style={styles.registerRow}>
@@ -137,7 +119,6 @@ return (
               <Text style={styles.registerLink}>Become a Partner</Text>
             </TouchableOpacity>
           </View>
-
         </View>
         <Text style={styles.copyright}>© {new Date().getFullYear()} MedsSeva Healthcare. All rights reserved.</Text>
         <View style={styles.footerLinks}>

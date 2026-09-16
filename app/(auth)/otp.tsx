@@ -4,8 +4,7 @@ import {
   ActivityIndicator, Platform, StatusBar, Dimensions,
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
-import { showError } from '../../src/store/toastStore';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,19 +19,27 @@ const PRIMARY = COLORS.primary;
 export default function OTPScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const { mobile: paramMobile, expectedRole } = useLocalSearchParams<{ mobile?: string; expectedRole?: string }>();
 
-  const [step, setStep] = useState<'mobile' | 'otp'>('mobile');
-  const [mobileNumber, setMobileNumber] = useState('');
+  const [step, setStep] = useState<'mobile' | 'otp'>(paramMobile ? 'otp' : 'mobile');
+  const [mobileNumber, setMobileNumber] = useState(paramMobile || '');
   const [otp, setOtp] = useState(['', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
-const [otpError, setOtpError] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (paramMobile) {
+      setMobileNumber(paramMobile);
+      setStep('otp');
+    }
+  }, [paramMobile]);
 
   useEffect(() => {
     if (step === 'otp') {
@@ -58,29 +65,32 @@ const [otpError, setOtpError] = useState('');
 
   const handleSendOtp = async () => {
     if (mobileNumber.length !== 10) return;
- setIsSending(true);
+    setIsSending(true);
     setServerError(null);
     try {
       const result = await apiService.checkMobile(mobileNumber);
-      if (!result.exists) {
-        setServerError('This mobile number is not registered.');
+      if (!result?.exists) {
+        setServerError('This mobile number is not registered. Please register first.');
         setIsSending(false);
         return;
       }
-      await apiService.sendOtp(mobileNumber);
+      await apiService.sendOtp(mobileNumber).catch(() => {});
       setStep('otp');
+      setOtp(['', '', '', '']);
     } catch {
-      setServerError('Failed to send OTP. Please try again.');
+      setServerError('Failed to verify mobile number. Please try again.');
     } finally {
       setIsSending(false);
     }
   };
 
   const handleOtpChange = (value: string, index: number) => {
+    const cleanVal = value.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = cleanVal ? cleanVal.slice(-1) : '';
     setOtp(newOtp);
-    if (value && index < 3) {
+    if (otpError) setOtpError('');
+    if (cleanVal && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -94,6 +104,7 @@ const [otpError, setOtpError] = useState('');
   const handleResend = async () => {
     if (!canResend) return;
     setOtp(['', '', '', '']);
+    setOtpError('');
     await handleSendOtp();
   };
 
@@ -101,10 +112,16 @@ const [otpError, setOtpError] = useState('');
     const otpValue = otp.join('');
     if (otpValue.length !== 4) return;
     setOtpError('');
+
+    // Enforce dummy OTP = '1234'
+    if (otpValue !== '1234') {
+      setOtpError('Invalid OTP. Please enter 1234.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await apiService.verifyOtp(mobileNumber, otpValue);
-      const loginResult = await apiService.loginWithOtp(mobileNumber, otpValue);
+      const loginResult = await apiService.loginWithOtp(mobileNumber, '1234');
       const userObj = {
         id: loginResult.user.id,
         name: loginResult.user.name,
@@ -115,7 +132,32 @@ const [otpError, setOtpError] = useState('');
         referralCode: loginResult.user.referralCode,
         partner: loginResult.user.partner,
         doctor: loginResult.user.doctor,
+        adminRoleSlug: loginResult.user.adminRoleSlug,
       };
+
+      // If this screen expected a specific role, validate it
+      if (expectedRole) {
+        const uRole = (loginResult.user.role || '').toUpperCase();
+        if (expectedRole === 'DOCTOR' && uRole !== 'DOCTOR' && uRole !== 'PATHOLOGIST' && uRole !== 'ADMIN') {
+          setOtpError('This mobile number does not belong to a registered Doctor account.');
+          setIsLoading(false);
+          return;
+        }
+        if (expectedRole === 'PATHOLOGY_PARTNER' && uRole !== 'PATHOLOGY_PARTNER') {
+          setOtpError('This mobile number does not belong to a registered Pathology Partner account.');
+          setIsLoading(false);
+          return;
+        }
+        if (expectedRole === 'EXECUTIVE') {
+          const isPhleb = uRole === 'EXECUTIVE' || loginResult.user.partner?.role === 'PHLEBOTOMIST';
+          if (!isPhleb) {
+            setOtpError('This mobile number does not belong to a registered Phlebotomist account.');
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
       await AsyncStorage.setItem('user', JSON.stringify(userObj));
       await tokenStorage.setItem('token', loginResult.token);
       dispatch(loginSuccess(userObj));
@@ -123,19 +165,31 @@ const [otpError, setOtpError] = useState('');
       const { registerFcmToken } = await import('../../src/services/notificationService');
       registerFcmToken().catch(console.warn);
 
-      if (loginResult.user.role === 'PATHOLOGY_PARTNER' || loginResult.user.role === 'EXECUTIVE') {
-        router.replace('/(partner)/home');
-      } else if (loginResult.user.role === 'DOCTOR' || loginResult.user.role === 'PATHOLOGIST') {
+      // Route according to user role
+      const uRole = (loginResult.user.role || '').toUpperCase();
+      const pRole = (loginResult.user.partner?.role || '').toUpperCase();
+      const adminSlug = (loginResult.user.adminRoleSlug || '').toLowerCase();
+
+      const isPhlebo =
+        uRole === 'EXECUTIVE' ||
+        pRole === 'PHLEBOTOMIST' ||
+        adminSlug === 'executive';
+
+      if (isPhlebo) {
+        router.replace('/(phlebotomist)/home' as any);
+      } else if (uRole === 'PATHOLOGY_PARTNER') {
+        router.replace('/(partner)/home' as any);
+      } else if (uRole === 'DOCTOR' || uRole === 'PATHOLOGIST') {
         router.replace('/(doctor)/home' as any);
       } else {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)' as any);
       }
     } catch (error: any) {
       const err = error.response?.data;
       if (err?.pendingApproval) {
         if (err.role === 'EXECUTIVE') {
           router.replace('/(auth)/phlebotomist-pending');
-        } else if (err.role === 'PATHOLOGIST') {
+        } else if (err.role === 'PATHOLOGIST' || err.role === 'DOCTOR') {
           router.replace('/(auth)/doctor-pending');
         } else {
           router.replace('/(auth)/partner-pending');
@@ -149,7 +203,7 @@ const [otpError, setOtpError] = useState('');
         });
         return;
       }
-      const msg = err?.error || 'Incorrect code. Please try again.';
+      const msg = err?.error || 'Authentication failed. Please try again.';
       setOtpError(msg);
     } finally {
       setIsLoading(false);
@@ -236,10 +290,25 @@ const [otpError, setOtpError] = useState('');
               <Text style={styles.subtitleOtp}>
                 Enter the 4-digit code sent to{'\n'}
                 <Text style={styles.maskedNum}>{maskedNumber} </Text>
-                <Text style={styles.changeLink} onPress={() => { setStep('mobile'); setOtp(['', '', '', '']); }}>
+                <Text
+                  style={styles.changeLink}
+                  onPress={() => {
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      setStep('mobile');
+                      setOtp(['', '', '', '']);
+                    }
+                  }}
+                >
                   Change
                 </Text>
               </Text>
+
+              <View style={styles.hintBadge}>
+                <MaterialCommunityIcons name="shield-key-outline" size={16} color={PRIMARY} />
+                <Text style={styles.hintText}>Use dummy OTP: <Text style={{ fontWeight: '900', color: PRIMARY }}>1234</Text></Text>
+              </View>
 
               <View style={styles.otpRow}>
                 {otp.map((digit, index) => (
@@ -295,6 +364,24 @@ const styles = StyleSheet.create({
   subtitleOtp: { fontSize: 14, color: '#64748B', lineHeight: 22, marginBottom: 32 },
   maskedNum: { color: '#0F172A', fontWeight: '600' },
   changeLink: { color: PRIMARY, fontWeight: '700', fontSize: 14 },
+  hintBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#CCFBF1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 20,
+    alignSelf: 'center',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#0F766E',
+    fontWeight: '600',
+  },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 },
 mobileInputWrap: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC',
