@@ -121,7 +121,7 @@ const calculateAgeFromDob = (dob: string): string => {
     );
   };
 
-  const isValid = name.trim().length > 2 && age.trim().length > 0 && mobile.length === 10;
+  const isValid = name.trim().length > 2 && Number(age) > 0 && Number(age) < 120 && Boolean(gender) && mobile.length === 10;
 
   const handleContinue = () => {
     if (!isValid) return;
@@ -146,6 +146,7 @@ const calculateAgeFromDob = (dob: string): string => {
       await apiService.updateMe({
         name: name.trim(),
         email: email.trim() || undefined,
+        gender: gender || undefined,
       });
       // Update local reference so re-entry doesn't re-trigger modal
       originalProfile.current.name = name.trim();
