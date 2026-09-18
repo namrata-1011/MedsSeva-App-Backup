@@ -5,8 +5,6 @@ import { useSelector } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
-import { Asset } from 'expo-asset';
 import { COLORS, SHADOWS } from '../src/theme/theme';
 import { RootState } from '../src/store';
 import { apiService } from '../src/services/api';
@@ -45,20 +43,10 @@ export default function ReferAndEarnScreen() {
     fetchReferralData();
   }, []);
 
+  const appPlayStoreUrl = 'https://play.google.com/store/apps/details?id=com.medssevaglobal.app';
   const referralLink = `https://medsseva.com/refer?code=${referralCode}`;
 
-  const shareMessage = `Hey,\n\nI am using MedsSeva for lab tests, full body health checkups & diagnostic bookings.\n\nYou can sign up with my code *${referralCode}* and get up to ₹100 cashback plus First Lab Test FREE on your first booking! Don't forget to complete your registration with my code.\n\nHere's my link:\n${referralLink}`;
-
-  const getShareableImageUri = async (): Promise<string | null> => {
-    try {
-      const asset = Asset.fromModule(require('../assets/images/refer&earn.png'));
-      await asset.downloadAsync();
-      return asset.localUri || asset.uri || null;
-    } catch (e) {
-      console.log('Error resolving share banner:', e);
-      return null;
-    }
-  };
+  const shareMessage = `Join Medsseva using my referral code ${referralCode} & get your First Lab Test 50% discount\nDownload app: ${appPlayStoreUrl}`;
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(referralCode);
@@ -75,52 +63,27 @@ export default function ReferAndEarnScreen() {
 
   const handleShare = async () => {
     try {
-      await Clipboard.setStringAsync(shareMessage);
-      showToast('Text copied! You can paste it when sharing the image.');
-
-      const isAvailable = await Sharing.isAvailableAsync();
-      const imageUri = await getShareableImageUri();
-
-      if (isAvailable && imageUri) {
-        await Sharing.shareAsync(imageUri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Share MedsSeva Referral',
-          UTI: 'public.png',
-        });
-      } else {
-        await Share.share({
-          message: shareMessage,
-          url: referralLink,
-        });
-      }
-    } catch (error) {
-      console.log('Share error:', error);
       await Share.share({
         message: shareMessage,
+        title: 'Join Medsseva & get 50% discount',
       });
+    } catch (error) {
+      console.log('Share error:', error);
     }
   };
 
   const handleWhatsappInvite = async () => {
     try {
-      await Clipboard.setStringAsync(shareMessage);
-      showToast('Message copied! Paste it in WhatsApp chat.');
-
-      const isAvailable = await Sharing.isAvailableAsync();
-      const imageUri = await getShareableImageUri();
-
-      if (isAvailable && imageUri) {
-        await Sharing.shareAsync(imageUri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Share MedsSeva Referral',
-          UTI: 'public.png',
-        });
+      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(shareMessage)}`;
+      const canOpen = await Linking.canOpenURL(whatsappUrl).catch(() => false);
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
       } else {
-        await Linking.openURL(`whatsapp://send?text=${encodeURIComponent(shareMessage)}`);
+        await Share.share({ message: shareMessage });
       }
     } catch (error) {
       console.log('WhatsApp share error:', error);
-      await Linking.openURL(`whatsapp://send?text=${encodeURIComponent(shareMessage)}`);
+      await Share.share({ message: shareMessage });
     }
   };
 
@@ -141,17 +104,17 @@ export default function ReferAndEarnScreen() {
         {/* Banner Poster Card */}
         <View style={styles.bannerCard}>
           <Image
-            source={require('../assets/images/refer&earn.png')}
+            source={require('../assets/images/refer_50_poster.png')}
             style={styles.bannerImage}
-            resizeMode="contain"
+            resizeMode="cover"
           />
         </View>
 
         {/* Hero Section */}
         <LinearGradient colors={['#E6FAFA', '#F0FDFA']} style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Invite Friends & Earn Upto ₹100 Cashback!</Text>
+          <Text style={styles.heroTitle}>Invite Friends & Get 50% OFF!</Text>
           <Text style={styles.heroSubtitle}>
-            Share your referral code with friends. When they enter your code during signup, both of you get instant cashback & 1st Lab Test 100% Free!
+            Share your referral code with friends. When they enter your code during signup, they get 50% OFF on their First Lab Test!
           </Text>
 
           <LinearGradient colors={['#FEF3C7', '#DCFCE7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.codeContainer}>
@@ -167,7 +130,7 @@ export default function ReferAndEarnScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={styles.codeBtn} onPress={handleShare}>
                 <MaterialCommunityIcons name="share-variant" size={16} color="#006D6F" style={{ marginRight: 4 }} />
-                <Text style={styles.codeBtnText}>Share Poster</Text>
+                <Text style={styles.codeBtnText}>Share Code</Text>
               </TouchableOpacity>
             </View>
           </LinearGradient>
@@ -178,7 +141,7 @@ export default function ReferAndEarnScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.winTitle}>Your Referrals</Text>
             <Text style={styles.winSubtitle}>
-              {totalReferrals > 0 ? `${totalReferrals} friends joined using your code` : 'No referrals yet. Start sharing!'}
+              {totalReferrals > 0 ? `${totalReferrals} people joined using your code` : 'No referrals yet. Start sharing!'}
             </Text>
             <TouchableOpacity style={styles.winBtn} onPress={handleViewRewards}>
               <Text style={styles.winBtnText}>View My Rewards</Text>
@@ -197,7 +160,7 @@ export default function ReferAndEarnScreen() {
               <MaterialCommunityIcons name="share-variant" size={40} color="#006D6F" />
               <Text style={styles.stepNum}>1</Text>
               <Text style={styles.stepTitleTxt}>Share your code</Text>
-              <Text style={styles.stepDescTxt}>via WhatsApp, SMS, or Social</Text>
+              <Text style={styles.stepDescTxt}>via WhatsApp or Social</Text>
             </View>
             <View style={styles.stepItem}>
               <MaterialCommunityIcons name="account-plus" size={40} color="#006D6F" />
@@ -208,8 +171,8 @@ export default function ReferAndEarnScreen() {
             <View style={styles.stepItem}>
               <MaterialCommunityIcons name="test-tube" size={40} color="#006D6F" />
               <Text style={styles.stepNum}>3</Text>
-              <Text style={styles.stepTitleTxt}>1st Test FREE</Text>
-              <Text style={styles.stepDescTxt}>They get 1st lab test 100% free</Text>
+              <Text style={styles.stepTitleTxt}>50% OFF</Text>
+              <Text style={styles.stepDescTxt}>They get 50% discount on 1st lab test</Text>
             </View>
           </View>
         </View>
@@ -223,7 +186,7 @@ export default function ReferAndEarnScreen() {
           <View style={styles.inviteBox}>
             <View style={{ flex: 1 }}>
               <Text style={styles.inviteTitle}>Invite via WhatsApp</Text>
-              <Text style={styles.inviteDesc}>Send app link & your code to WhatsApp contacts.</Text>
+              <Text style={styles.inviteDesc}>Send app link & code to WhatsApp contacts.</Text>
             </View>
             <TouchableOpacity style={styles.inviteBtn} onPress={handleWhatsappInvite}>
               <MaterialCommunityIcons name="whatsapp" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
@@ -251,7 +214,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16 },
 
   bannerCard: { width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 16, backgroundColor: '#F8FAFC', ...SHADOWS.soft },
-  bannerImage: { width: '100%', height: 280, borderRadius: 16 },
+  bannerImage: { width: '100%', height: 380, borderRadius: 16 },
 
   heroSection: { borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 20 },
   heroTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', textAlign: 'center', marginBottom: 8 },

@@ -109,8 +109,9 @@ const { data: packages = [] } = useQuery({
   const cmsBanners = Array.isArray(rawCmsBanners)
     ? rawCmsBanners
     : (Array.isArray((rawCmsBanners as any)?.banners) ? (rawCmsBanners as any).banners : []);
-    
-  console.log('DEBUG BANNERS -> raw:', JSON.stringify(rawCmsBanners), 'cms:', JSON.stringify(cmsBanners));
+
+  const heroBanners = cmsBanners.filter((b: any) => b.isActive !== false && b.bannerType !== 'PROMO');
+  const dynamicPromoBanners = cmsBanners.filter((b: any) => b.isActive !== false && b.bannerType === 'PROMO');
 
   // Health Checkup Journey Dynamic S-Curve SVG Path Generator
   const [journeyWidth, setJourneyWidth] = useState(width - 32 - 40); 
@@ -187,13 +188,16 @@ const [activeHeroIndex, setActiveHeroIndex] = useState(0);
     };
   }, []);
 
-  // Static Promo Banners Carousel Hooks
+  // Promo Banners (Dynamic CMS with Static Fallback) Hooks
   const staticBanners = [
     require('../../assets/images/banner1.png'),
     require('../../assets/images/banner2.png'),
     require('../../assets/images/banner3.png'),
     require('../../assets/images/banner4.png'),
   ];
+  const isUsingDynamicPromo = dynamicPromoBanners.length > 0;
+  const activePromoList = isUsingDynamicPromo ? dynamicPromoBanners : staticBanners;
+
   const [activeStaticHeroIndex, setActiveStaticHeroIndex] = useState(0);
   const staticHeroFlatListRef = useRef<any>(null);
   const staticHeroTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -203,7 +207,9 @@ const [activeHeroIndex, setActiveHeroIndex] = useState(0);
     staticHeroTimerRef.current = setInterval(() => {
       if (!isMountedRef.current) return;
       setActiveStaticHeroIndex((prevIndex) => {
-        const nextIndex = prevIndex === staticBanners.length - 1 ? 0 : prevIndex + 1;
+        const count = activePromoList.length;
+        if (count <= 1) return 0;
+        const nextIndex = prevIndex >= count - 1 ? 0 : prevIndex + 1;
         try {
           staticHeroFlatListRef.current?.scrollToIndex({
             index: nextIndex,
@@ -226,7 +232,7 @@ const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   useEffect(() => {
     startStaticHeroTimer();
     return () => stopStaticHeroTimer();
-  }, []);
+  }, [activePromoList.length]);
 
   const onStaticHeroViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems && viewableItems.length > 0) {
@@ -430,11 +436,11 @@ const filteredTests = activeCategory === 'all'
 
         {/* Premium Auto-Scrolling Hero Carousel */}
         <View style={styles.heroCarouselSection}>
-          {(!Array.isArray(cmsBanners) || cmsBanners.length === 0) ? null : (
+          {(!Array.isArray(heroBanners) || heroBanners.length === 0) ? null : (
             <>
               <FlatList
                 ref={heroFlatListRef as any}
-                data={cmsBanners}
+                data={heroBanners}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
@@ -452,6 +458,8 @@ const filteredTests = activeCategory === 'all'
                           router.push(`/package/${item.linkValue}` as any);
                         } else if (item.linkType === 'Test' && item.linkValue) {
                           router.push(`/test/${item.linkValue}` as any);
+                        } else if (item.linkType === 'External' && item.linkValue) {
+                          Linking.openURL(item.linkValue).catch(() => {});
                         } else {
                           router.push('/package' as any);
                         }
@@ -488,7 +496,7 @@ const filteredTests = activeCategory === 'all'
                 )}
               />
               <View style={styles.heroDotsRow}>
-                {cmsBanners.map((_: any, idx: number) => (
+                {heroBanners.map((_: any, idx: number) => (
                   <View
                     key={idx}
                     style={[styles.heroDot, activeHeroIndex === idx && styles.heroDotActive]}
@@ -499,24 +507,40 @@ const filteredTests = activeCategory === 'all'
           )}
         </View>
 
-        {/* Static Promo Banners Carousel */}
+        {/* Dynamic & Fallback Promo Banners Carousel */}
         <View style={[styles.heroCarouselSection, { marginTop: -32 }]}>
           <FlatList
             ref={staticHeroFlatListRef as any}
-            data={staticBanners}
+            data={activePromoList}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(_: any, index: number) => index.toString()}
+            keyExtractor={(item: any, index: number) => item?.id || index.toString()}
             onViewableItemsChanged={onStaticHeroViewableItemsChanged as any}
             viewabilityConfig={heroViewabilityConfig}
             onScrollBeginDrag={stopStaticHeroTimer}
             onScrollEndDrag={startStaticHeroTimer}
             renderItem={({ item }: { item: any }) => (
               <View style={[styles.heroSlideWrapper, { paddingHorizontal: 20 }]}>
-                <TouchableOpacity activeOpacity={0.95} style={styles.heroSlide}>
+                <TouchableOpacity
+                  activeOpacity={0.95}
+                  style={styles.heroSlide}
+                  onPress={() => {
+                    if (isUsingDynamicPromo) {
+                      if (item.linkType === 'Package' && item.linkValue) {
+                        router.push(`/package/${item.linkValue}` as any);
+                      } else if (item.linkType === 'Test' && item.linkValue) {
+                        router.push(`/test/${item.linkValue}` as any);
+                      } else if (item.linkType === 'External' && item.linkValue) {
+                        Linking.openURL(item.linkValue).catch(() => {});
+                      } else {
+                        router.push('/package' as any);
+                      }
+                    }
+                  }}
+                >
                   <Image
-                    source={item}
+                    source={isUsingDynamicPromo ? { uri: item.imageUrl } : item}
                     style={[styles.heroBannerImage, { height: 140 }]}
                     resizeMode="cover"
                   />
@@ -525,7 +549,7 @@ const filteredTests = activeCategory === 'all'
             )}
           />
           <View style={styles.heroDotsRow}>
-            {staticBanners.map((_, idx) => (
+            {activePromoList.map((_, idx) => (
               <View
                 key={idx}
                 style={[styles.heroDot, activeStaticHeroIndex === idx && styles.heroDotActive]}
