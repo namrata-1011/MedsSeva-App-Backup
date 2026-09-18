@@ -1,4 +1,4 @@
-/*eslint-disabled*/
+/* eslint-disable */
 import React, { useState, useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, Modal, Pressable, StatusBar, Platform, Image, DeviceEventEmitter, FlatList, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -37,7 +37,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (user?.role === 'DOCTOR' || user?.role === 'PATHOLOGIST') {
       router.replace('/(doctor)/home' as any);
-    } else if (user?.role === 'EXECUTIVE' || user?.partner?.role === 'PHLEBOTOMIST' || user?.adminRoleSlug === 'executive') {
+    } else if (user?.role === 'EXECUTIVE' || (user?.partner as any)?.role === 'PHLEBOTOMIST' || user?.adminRoleSlug === 'executive') {
       router.replace('/(phlebotomist)/home' as any);
     } else if (user?.role === 'PATHOLOGY_PARTNER') {
       router.replace('/(partner)/home' as any);
@@ -109,6 +109,9 @@ const { data: packages = [] } = useQuery({
   const cmsBanners = Array.isArray(rawCmsBanners)
     ? rawCmsBanners
     : (Array.isArray((rawCmsBanners as any)?.banners) ? (rawCmsBanners as any).banners : []);
+    
+  console.log('DEBUG BANNERS -> raw:', JSON.stringify(rawCmsBanners), 'cms:', JSON.stringify(cmsBanners));
+
   // Health Checkup Journey Dynamic S-Curve SVG Path Generator
   const [journeyWidth, setJourneyWidth] = useState(width - 32 - 40); 
   
@@ -144,18 +147,25 @@ const { data: packages = [] } = useQuery({
   
   // Hero Auto-Scrolling Carousel Hooks
 const [activeHeroIndex, setActiveHeroIndex] = useState(0);
-  const heroFlatListRef = useRef<FlatList>(null);
+  const heroFlatListRef = useRef<any>(null);
   const heroTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startHeroTimer = () => {
     stopHeroTimer();
     heroTimerRef.current = setInterval(() => {
+      if (!isMountedRef.current) return;
       setActiveHeroIndex((prevIndex) => {
-        const nextIndex = prevIndex === (cmsBanners.length || 1) - 1 ? 0 : prevIndex + 1;
-        heroFlatListRef.current?.scrollToIndex({
-          index: nextIndex,
-          animated: true,
-        });
+        // We can't rely on cmsBanners.length from the closure here perfectly, but 
+        // using optional chaining on the ref prevents crashes.
+        const nextIndex = prevIndex >= 1 ? 0 : prevIndex + 1; 
+        try {
+          heroFlatListRef.current?.scrollToIndex({
+            index: nextIndex,
+            animated: true,
+          });
+        } catch (e) {
+          // ignore layout errors
+        }
         return nextIndex;
       });
     }, 4000);
@@ -185,7 +195,7 @@ const [activeHeroIndex, setActiveHeroIndex] = useState(0);
     require('../../assets/images/banner4.png'),
   ];
   const [activeStaticHeroIndex, setActiveStaticHeroIndex] = useState(0);
-  const staticHeroFlatListRef = useRef<FlatList>(null);
+  const staticHeroFlatListRef = useRef<any>(null);
   const staticHeroTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startStaticHeroTimer = () => {
@@ -423,18 +433,18 @@ const filteredTests = activeCategory === 'all'
           {(!Array.isArray(cmsBanners) || cmsBanners.length === 0) ? null : (
             <>
               <FlatList
-                ref={heroFlatListRef}
+                ref={heroFlatListRef as any}
                 data={cmsBanners}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(item: any) => item.id}
-                onViewableItemsChanged={onHeroViewableItemsChanged}
+                onViewableItemsChanged={onHeroViewableItemsChanged as any}
                 viewabilityConfig={heroViewabilityConfig}
                 onScrollBeginDrag={stopHeroTimer}
                 onScrollEndDrag={startHeroTimer}
                 renderItem={({ item }: { item: any }) => (
-                  <View style={styles.heroSlideWrapper}>
+                  <View style={[styles.heroSlideWrapper, { paddingHorizontal: 24 }]}>
                     <TouchableOpacity
                       activeOpacity={0.95}
                       onPress={() => {
@@ -451,7 +461,7 @@ const filteredTests = activeCategory === 'all'
                       {item.imageUrl ? (
                         <Image
                           source={{ uri: item.imageUrl }}
-                          style={styles.heroBannerImage}
+                          style={[styles.heroBannerImage, { height: 125 }]}
                           resizeMode="cover"
                         />
                       ) : (
@@ -492,22 +502,22 @@ const filteredTests = activeCategory === 'all'
         {/* Static Promo Banners Carousel */}
         <View style={[styles.heroCarouselSection, { marginTop: -32 }]}>
           <FlatList
-            ref={staticHeroFlatListRef}
+            ref={staticHeroFlatListRef as any}
             data={staticBanners}
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(_, index) => index.toString()}
-            onViewableItemsChanged={onStaticHeroViewableItemsChanged}
+            keyExtractor={(_: any, index: number) => index.toString()}
+            onViewableItemsChanged={onStaticHeroViewableItemsChanged as any}
             viewabilityConfig={heroViewabilityConfig}
             onScrollBeginDrag={stopStaticHeroTimer}
             onScrollEndDrag={startStaticHeroTimer}
-            renderItem={({ item }) => (
-              <View style={styles.heroSlideWrapper}>
+            renderItem={({ item }: { item: any }) => (
+              <View style={[styles.heroSlideWrapper, { paddingHorizontal: 20 }]}>
                 <TouchableOpacity activeOpacity={0.95} style={styles.heroSlide}>
                   <Image
                     source={item}
-                    style={[styles.heroBannerImage, { height: 170 }]}
+                    style={[styles.heroBannerImage, { height: 140 }]}
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
@@ -691,7 +701,7 @@ const filteredTests = activeCategory === 'all'
           <View style={styles.trustGrid}>
             <View style={styles.trustCard}>
               <MaterialCommunityIcons name="medal-outline" size={24} color="#64748B" />
-              <Text style={styles.trustCardText}>CAP & NABL{'\n'}Accredited Labs</Text>
+              <Text style={styles.trustCardText}>CAP{'\n'}Accredited Labs</Text>
             </View>
             <View style={styles.trustCard}>
               <MaterialCommunityIcons name="timer-outline" size={24} color="#64748B" />
@@ -717,14 +727,14 @@ const filteredTests = activeCategory === 'all'
             <View style={styles.advisorButtons}>
               <TouchableOpacity 
                 style={[styles.advisorBtn, { backgroundColor: '#65A30D' }]}
-                onPress={() => Linking.openURL('tel:+910000000000')}
+                onPress={() => Linking.openURL('tel:+918448030936')}
               >
                 <MaterialCommunityIcons name="phone-outline" size={16} color="#FFFFFF" />
                 <Text style={styles.advisorBtnText}>Call Now</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.advisorBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#FFFFFF' }]}
-                onPress={() => Linking.openURL('whatsapp://send?phone=910000000000')}
+                onPress={() => Linking.openURL('whatsapp://send?phone=918448030936')}
               >
                 <MaterialCommunityIcons name="whatsapp" size={16} color="#FFFFFF" />
                 <Text style={styles.advisorBtnText}>Chat With Us</Text>
@@ -764,7 +774,7 @@ const filteredTests = activeCategory === 'all'
           
           <View 
             style={styles.timelineWrapper}
-            onLayout={(event) => {
+            onLayout={(event: any) => {
               const { width } = event.nativeEvent.layout;
               if (width > 0) setJourneyWidth(width);
             }}
@@ -833,12 +843,14 @@ const filteredTests = activeCategory === 'all'
           </View>
         </TouchableOpacity>
         
-        {/* Awards & Footer Section */}
-        <View style={styles.awardsFooter}>
-          <Image 
-            source={require('../../assets/images/award_badge_medsseva.png')} 
-            style={{ width: width * 0.85, height: 260, resizeMode: 'contain' }} 
-          />
+        {/* Footer Message Section */}
+        <View style={{ paddingTop: 40, paddingBottom: 16, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: '#64748B', marginBottom: 6, letterSpacing: -0.5 }}>
+            Stay Healthy
+          </Text>
+          <Text style={{ fontSize: 13, color: '#94A3B8', fontWeight: '500' }}>
+            Made with ❤️ by MedsSeva
+          </Text>
         </View>
         
         {/* Streamlined bottom spacing for perfect footer alignment */}
@@ -928,7 +940,7 @@ const filteredTests = activeCategory === 'all'
               <TouchableOpacity 
                 style={styles.drawerItem} 
                 onPress={() => {
-                 closeDrawer(() => router.push('/support/chat'));
+                 closeDrawer(() => router.push('/support' as any));
                 }}
               >
                 <View style={[styles.drawerItemIconBox, { backgroundColor: COLORS.warningLight }]}>
@@ -1108,7 +1120,7 @@ locationText: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   floatingActionsRow: {
     flexDirection: 'row',

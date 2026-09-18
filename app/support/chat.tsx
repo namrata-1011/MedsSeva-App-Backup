@@ -202,10 +202,10 @@ const handleRequestSupport = () => {
 
     return (
       <View style={[styles.msgBubbleWrapper, isUser ? styles.wrapperUser : styles.wrapperBot]}>
-        {!isUser && (
-          <View style={[styles.botBubbleAvatar, isAgent && styles.agentAvatar]}>
+        {!isUser && isAgent && (
+          <View style={[styles.botBubbleAvatar, styles.agentAvatar]}>
             <MaterialCommunityIcons
-              name={isAgent ? 'headset' : 'creation'}
+              name="headset"
               size={13}
               color="#FFF"
             />
@@ -248,13 +248,15 @@ const handleRequestSupport = () => {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#FFF" />
         </TouchableOpacity>
-        <View style={[styles.headerAvatar, conversation?.status === 'HUMAN_ACTIVE' && styles.headerAvatarAgent]}>
-          <MaterialCommunityIcons
-            name={conversation?.status === 'HUMAN_ACTIVE' ? 'headset' : 'creation'}
-            size={20}
-            color={conversation?.status === 'HUMAN_ACTIVE' ? '#FFF' : '#FFE082'}
-          />
-        </View>
+        {conversation?.status === 'HUMAN_ACTIVE' && (
+          <View style={[styles.headerAvatar, styles.headerAvatarAgent]}>
+            <MaterialCommunityIcons
+              name="headset"
+              size={20}
+              color="#FFF"
+            />
+          </View>
+        )}
         <View style={styles.headerMeta}>
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerName}>{getHeaderName()}</Text>

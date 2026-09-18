@@ -139,7 +139,7 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
+    const sub = AppState.addEventListener('change', (state: any) => {
       if (state === 'active') {
         const id = bookingId || bookingIdRef.current;
         if (id) fetchBooking(id);
@@ -161,7 +161,7 @@ useEffect(() => {
           <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.textDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Live Tracking</Text>
-        <TouchableOpacity style={styles.helpButton} onPress={() => router.push('/support/chat')}>
+        <TouchableOpacity style={styles.helpButton} onPress={() => router.push('/support' as any)}>
           <MaterialCommunityIcons name="help-circle-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>
       </View>

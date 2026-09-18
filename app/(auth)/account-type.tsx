@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, StatusBar, Platform, Linking
+  ScrollView, StatusBar, Platform, Linking,
+  PanResponder
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +14,23 @@ export default function AccountTypeScreen() {
   const router = useRouter();
   const [selected, setSelected] = useState<'user' | 'partner' | 'other'>('user');
 
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_: any, gestureState: any) => {
+        return gestureState.dy > 10 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx);
+      },
+      onPanResponderRelease: (_: any, gestureState: any) => {
+        if (gestureState.dy > 50) {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/onboarding');
+          }
+        }
+      },
+    })
+  ).current;
+
   const handleContinue = () => {
     if (selected === 'user') router.push('/(auth)/login');
     else if (selected === 'partner') router.push('/(auth)/partner-login');
@@ -20,126 +38,151 @@ export default function AccountTypeScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <StatusBar barStyle="dark-content" backgroundColor="#E8F0F3" />
+    <View style={styles.mainContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#637C8E" />
+      <View style={styles.bottomSheet}>
+        <TouchableOpacity style={styles.dragArea} onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/onboarding');
+          }
+        }} activeOpacity={0.8} {...panResponder.panHandlers}>
+          <View style={styles.dragHandle} />
+        </TouchableOpacity>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
-      <Text style={styles.title}>Continue as</Text>
-      <Text style={styles.subtitle}>Select your profile to experience tailored{'\n'}healthcare services.</Text>
+          <Text style={styles.title}>Select your role</Text>
+          <Text style={styles.subtitle}>Choose how you will be using the platform to customize your experience.</Text>
 
-      <TouchableOpacity
-        style={[styles.card, selected === 'user' && styles.cardSelected]}
-        onPress={() => setSelected('user')}
-        activeOpacity={0.9}
-      >
-        <View style={styles.cardTopRow}>
-          <View style={[styles.iconBox, selected === 'user' && styles.iconBoxSelected]}>
-            <MaterialCommunityIcons name="account" size={26} color={selected === 'user' ? '#fff' : '#64748B'} />
-          </View>
-          <View style={[styles.radio, selected === 'user' && styles.radioSelected]}>
-            {selected === 'user' && <View style={styles.radioDot} />}
-          </View>
-        </View>
-        <Text style={[styles.cardTitle, selected === 'user' && styles.cardTitleSelected]}>User</Text>
-        <Text style={styles.cardDesc}>Order medicines, book lab tests, and manage{'\n'}your family's health records in one secure place.</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.card, selected === 'user' && styles.cardSelected]}
+            onPress={() => setSelected('user')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardLeft}>
+              <View style={styles.iconBox}>
+                <MaterialCommunityIcons name="pencil-outline" size={22} color={PRIMARY} />
+              </View>
+              <View style={styles.cardTextCol}>
+                <Text style={styles.cardTitle}>User</Text>
+                <Text style={styles.cardDesc}>Book lab tests, and manage health records.</Text>
+              </View>
+            </View>
+            <View style={[styles.radio, selected === 'user' && styles.radioSelected]}>
+              {selected === 'user' && <View style={styles.radioDot} />}
+            </View>
+          </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.card, selected === 'partner' && styles.cardSelected]}
-        onPress={() => setSelected('partner')}
-        activeOpacity={0.9}
-      >
-        <View style={styles.cardTopRow}>
-          <View style={[styles.iconBox, selected === 'partner' && styles.iconBoxSelected]}>
-            <MaterialCommunityIcons name="medical-bag" size={26} color={selected === 'partner' ? '#fff' : '#64748B'} />
-          </View>
-          <View style={[styles.radio, selected === 'partner' && styles.radioSelected]}>
-            {selected === 'partner' && <View style={styles.radioDot} />}
-          </View>
-        </View>
-        <Text style={[styles.cardTitle, selected === 'partner' && styles.cardTitleSelected]}>Partner</Text>
-        <Text style={styles.cardDesc}>Join our pathology lab network. Manage diagnostic{'\n'}center operations and report processing.</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.card, selected === 'partner' && styles.cardSelected]}
+            onPress={() => setSelected('partner')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardLeft}>
+              <View style={styles.iconBox}>
+                <MaterialCommunityIcons name="office-building" size={22} color={PRIMARY} />
+              </View>
+              <View style={styles.cardTextCol}>
+                <Text style={styles.cardTitle}>Partner</Text>
+                <Text style={styles.cardDesc}>Join our pathology lab network and manage diagnostic operations.</Text>
+              </View>
+            </View>
+            <View style={[styles.radio, selected === 'partner' && styles.radioSelected]}>
+              {selected === 'partner' && <View style={styles.radioDot} />}
+            </View>
+          </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.card, selected === 'other' && styles.cardSelected]}
-        onPress={() => setSelected('other')}
-        activeOpacity={0.9}
-      >
-        <View style={styles.cardTopRow}>
-          <View style={[styles.iconBox, selected === 'other' && styles.iconBoxSelected]}>
-            <MaterialCommunityIcons name="account-group" size={26} color={selected === 'other' ? '#fff' : '#64748B'} />
-          </View>
-          <View style={[styles.radio, selected === 'other' && styles.radioSelected]}>
-            {selected === 'other' && <View style={styles.radioDot} />}
-          </View>
-        </View>
-        <Text style={[styles.cardTitle, selected === 'other' && styles.cardTitleSelected]}>Other</Text>
-        <Text style={styles.cardDesc}>Phlebotomist sample collection, Doctor referrals,{'\n'}and business channel partner portals.</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.card, selected === 'other' && styles.cardSelected]}
+            onPress={() => setSelected('other')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardLeft}>
+              <View style={styles.iconBox}>
+                <MaterialCommunityIcons name="cart-outline" size={22} color={PRIMARY} />
+              </View>
+              <View style={styles.cardTextCol}>
+                <Text style={styles.cardTitle}>Other</Text>
+                <Text style={styles.cardDesc}>Phlebotomist sample collection and business channel portals.</Text>
+              </View>
+            </View>
+            <View style={[styles.radio, selected === 'other' && styles.radioSelected]}>
+              {selected === 'other' && <View style={styles.radioDot} />}
+            </View>
+          </TouchableOpacity>
 
-      <TouchableOpacity style={styles.continueBtn} onPress={handleContinue} activeOpacity={0.85}>
-        <Text style={styles.continueBtnText}>
-          Continue as {selected === 'user' ? 'User' : selected === 'partner' ? 'Partner' : 'Other'}
-        </Text>
-        <MaterialCommunityIcons name="chevron-right" size={20} color="#fff" />
-      </TouchableOpacity>
+          <View style={styles.spacer} />
 
-     
-       <View style={styles.footerLinks}>
-               <TouchableOpacity onPress={() => router.push({ pathname: '/legal/LegalWebView', params: { type: 'terms' } })}>
-                 <Text style={styles.footerLink}>Terms of Service</Text>
-               </TouchableOpacity>
-               <Text style={styles.footerSep}> · </Text>
-               <TouchableOpacity onPress={() => router.push({ pathname: '/legal/LegalWebView', params: { type: 'privacy' } })}>
-                 <Text style={styles.footerLink}>Privacy Policy</Text>
-               </TouchableOpacity>
-             </View>
-     <Text style={styles.copyright}>
-  © {new Date().getFullYear()} MedsSeva Healthcare. All rights reserved.
-</Text>
-    </ScrollView>
+          <TouchableOpacity style={[styles.continueBtn, !selected && styles.continueBtnDisabled]} onPress={handleContinue} activeOpacity={0.85}>
+            <Text style={styles.continueBtnText}>Continue</Text>
+          </TouchableOpacity>
+
+          <View style={styles.footerLinks}>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/legal/LegalWebView', params: { type: 'terms' } })}>
+              <Text style={styles.footerLink}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerSep}> · </Text>
+            <TouchableOpacity onPress={() => router.push({ pathname: '/legal/LegalWebView', params: { type: 'privacy' } })}>
+              <Text style={styles.footerLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.copyright}>
+            © {new Date().getFullYear()} MedsSeva Healthcare.
+          </Text>
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#E8F0F3' },
-  content: { paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 70 : 50, paddingBottom: 40 },
-  title: { fontSize: 32, fontWeight: '700', color: '#0F2937', textAlign: 'center', marginBottom: 10 },
-  subtitle: { fontSize: 15, color: '#4B6070', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  mainContainer: { flex: 1, backgroundColor: PRIMARY, justifyContent: 'flex-end' },
+  bottomSheet: { backgroundColor: '#FFF', maxHeight: '85%', borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
+  dragArea: { width: '100%', height: 40, justifyContent: 'center', alignItems: 'center' },
+  dragHandle: { width: 40, height: 4, backgroundColor: '#E2E8F0', borderRadius: 2 },
+  content: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 10 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#0F172A', marginBottom: 8 },
+  subtitle: { fontSize: 13, color: '#64748B', lineHeight: 20, marginBottom: 24 },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   cardSelected: {
-    backgroundColor: '#E6F4F3',
     borderColor: PRIMARY,
   },
-  cardTopRow: {
+  cardLeft: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 16,
   },
   iconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E6F4F3',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
-  iconBoxSelected: {
-    backgroundColor: PRIMARY,
+  cardTextCol: {
+    flex: 1,
   },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+  cardDesc: { fontSize: 11, color: '#64748B', lineHeight: 16 },
   radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
     borderColor: '#CBD5E1',
     justifyContent: 'center',
     alignItems: 'center',
@@ -153,26 +196,22 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: PRIMARY,
   },
-  cardTitle: { fontSize: 20, fontWeight: '700', color: '#0F2937', marginBottom: 6 },
-  cardTitleSelected: { color: '#0F2937' },
-  cardDesc: { fontSize: 14, color: '#5A7080', lineHeight: 21 },
+  spacer: { height: 24 },
   continueBtn: {
     backgroundColor: PRIMARY,
-    height: 54,
-    borderRadius: 14,
-    flexDirection: 'row',
+    height: 50,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
     marginBottom: 20,
-    gap: 6,
   },
-  continueBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
-  loginRowText: { fontSize: 14, color: '#5A7080' },
-  loginLink: { fontSize: 14, fontWeight: '700', color: PRIMARY },
+  continueBtnDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#CBD5E1',
+  },
+  continueBtnText: { fontSize: 15, fontWeight: 'bold', color: '#FFF' },
   footerLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  footerLink: { fontSize: 13, color: '#5A7080' },
-  footerSep: { fontSize: 13, color: '#5A7080' },
-  copyright: { fontSize: 12, color: '#7A9AAA', textAlign: 'center' },
+  footerLink: { fontSize: 12, color: '#94A3B8' },
+  footerSep: { fontSize: 12, color: '#94A3B8' },
+  copyright: { fontSize: 11, color: '#94A3B8', textAlign: 'center' },
 });

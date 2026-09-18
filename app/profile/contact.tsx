@@ -15,7 +15,7 @@ export default function ContactScreen() {
     let url = '';
     switch (type) {
       case 'call':
-        url = 'tel:+919205109007';
+        url = 'tel:+918448030936';
         break;
       case 'email':
         url = 'mailto:pathology@medsseva.com';
@@ -109,7 +109,7 @@ export default function ContactScreen() {
           {renderContactRow(
             'phone-in-talk', 
             'Phone Number', 
-            '+91-9205109007',
+            '+91-8448030936',
             () => handleAction('call')
           )}
           

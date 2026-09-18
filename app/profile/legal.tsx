@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Image,
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 
@@ -52,10 +53,9 @@ export default function LegalScreen() {
    <ScreenWrapper contentContainerStyle={styles.scroll}>
         <View style={styles.bannerCard}>
           <View style={styles.bannerIcon}>
-            <MaterialCommunityIcons name="gavel" size={36} color={COLORS.primary} />
+            <Image source={require('../../assets/images/logo.png')} style={{ width: 140, height: 50 }} resizeMode="contain" />
           </View>
           <Text style={styles.bannerTitle}>MedsSeva Policies & Guidelines</Text>
-          <Text style={styles.bannerSub}>Last Updated: July 2026</Text>
         </View>
 
 <View style={styles.group}>
@@ -125,30 +125,25 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   bannerCard: {
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.primary,
     borderRadius: 20,
-    padding: 24,
+    padding: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     ...SHADOWS.soft,
   },
   bannerIcon: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(0,109,111,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   bannerTitle: {
-    fontSize: 15,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#1B1B1B',
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 4,
+    marginTop: 8,
   },
   bannerSub: {
     fontSize: 12,

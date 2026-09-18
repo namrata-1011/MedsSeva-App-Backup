@@ -228,21 +228,26 @@ export default function EditProfileScreen() {
 
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Text style={styles.inputLabel}>BLOOD GROUP</Text>
-                <TouchableOpacity style={styles.bloodPicker} onPress={() => setIsBloodGroupVisible(true)}>
-                  <Text style={[styles.bloodVal, !bloodGroup && { color: '#94A3B8', fontWeight: '500' }]}>
-                    {bloodGroup || 'Select'}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-down" size={18} color="#64748B" />
-                </TouchableOpacity>
+                <View style={styles.bloodPicker}>
+                  <TextInput
+                    style={styles.bloodInput}
+                    value={bloodGroup}
+                    onChangeText={setBloodGroup}
+                    placeholder="Select or Type"
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="characters"
+                  />
+                  <TouchableOpacity onPress={() => setIsBloodGroupVisible(true)} style={styles.bloodChevronBtn}>
+                    <MaterialCommunityIcons name="chevron-down" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
         </View>
-
-  <View style={{ height: 50 }} />
       </ScreenWrapper>
       <Modal visible={isCalendarVisible} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { justifyContent: 'flex-end' }]}>
           <View style={styles.calendarSheet}>
             <View style={styles.calSheetHeader}>
               <Text style={styles.calSheetHeadline}>Select Date of Birth</Text>
@@ -306,28 +311,27 @@ export default function EditProfileScreen() {
           </View>
         </View>
       </Modal>
-
-      <Modal visible={isBloodGroupVisible} transparent animationType="slide">
+      <Modal visible={isBloodGroupVisible} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
-          <View style={styles.bloodSheet}>
-            <View style={styles.calSheetHeader}>
-              <Text style={styles.calSheetHeadline}>Select Blood Group</Text>
+          <View style={styles.centeredDialog}>
+            <View style={styles.dialogHeader}>
+              <Text style={styles.dialogHeadline}>Select Blood Group</Text>
               <TouchableOpacity onPress={() => setIsBloodGroupVisible(false)}>
-                <MaterialCommunityIcons name="close-circle" size={26} color="#94A3B8" />
+                <MaterialCommunityIcons name="close" size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
-            <View style={styles.bloodGroupGrid}>
-              {BLOOD_GROUPS.map((bg) => (
+            <ScrollView style={styles.dialogScroll} showsVerticalScrollIndicator={false}>
+              {BLOOD_GROUPS.map((bg, idx) => (
                 <TouchableOpacity
                   key={bg}
-                  style={[styles.bloodGroupCell, bloodGroup === bg && styles.bloodGroupCellActive]}
+                  style={[styles.dialogItem, idx === BLOOD_GROUPS.length - 1 && { borderBottomWidth: 0 }]}
                   onPress={() => { setBloodGroup(bg); setIsBloodGroupVisible(false); }}
                 >
-                  <Text style={[styles.bloodGroupCellText, bloodGroup === bg && styles.bloodGroupCellTextActive]}>{bg}</Text>
+                  <Text style={[styles.dialogItemText, bloodGroup === bg && styles.dialogItemTextActive]}>{bg}</Text>
+                  {bloodGroup === bg && <MaterialCommunityIcons name="check-circle" size={20} color={COLORS.primary} />}
                 </TouchableOpacity>
               ))}
-            </View>
-            <View style={{ height: 24 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -416,9 +420,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
+    paddingLeft: 12,
+    paddingRight: 8,
   },
-  bloodVal: { fontSize: 13, fontWeight: '800', color: '#1E293B' },
+  bloodInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  bloodChevronBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   primaryUpdateBtn: {
     flexDirection: 'row',
     backgroundColor: COLORS.primary,
@@ -434,7 +450,7 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   calendarSheet: {
     backgroundColor: '#FFFFFF',
@@ -510,25 +526,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 32,
   },
-  bloodGroupGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  bloodGroupCell: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1.2,
+  dayCellText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#334155',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
     borderColor: '#E2E8F0',
-    minWidth: 72,
+    textAlign: 'center',
+    lineHeight: 32,
+  },
+  centeredDialog: {
+    backgroundColor: '#FFFFFF',
+    width: '85%',
+    maxHeight: '65%',
+    borderRadius: 20,
+    alignSelf: 'center',
+    overflow: 'hidden',
+    paddingBottom: 8,
+    elevation: 10,
+    marginBottom: Platform.OS === 'ios' ? 0 : 50, // slightly above center
+  },
+  dialogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
-  bloodGroupCellActive: {
-    backgroundColor: 'rgba(13, 148, 136, 0.1)',
-    borderColor: COLORS.primary,
+  dialogHeadline: { fontSize: 17, fontWeight: '800', color: '#1E293B' },
+  dialogScroll: { paddingHorizontal: 8 },
+  dialogItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
   },
-  bloodGroupCellText: { fontSize: 15, fontWeight: '800', color: '#334155' },
-  bloodGroupCellTextActive: { color: COLORS.primary },
+  dialogItemText: { fontSize: 15, color: '#475569', fontWeight: '600' },
+  dialogItemTextActive: { color: COLORS.primary, fontWeight: '800' },
 });

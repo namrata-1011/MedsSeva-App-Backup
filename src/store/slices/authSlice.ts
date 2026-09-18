@@ -15,6 +15,7 @@ interface User {
   email: string;
   mobile: string;
   role?: string;
+  adminRoleSlug?: string;
   uhid?: string;
   avatarUrl?: string | null;
   healthScore?: number;

@@ -279,7 +279,7 @@ export default function ProfileScreen() {
       <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
     </TouchableOpacity>
     <View style={styles.divider} />
-    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/support/chat')} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/support' as any)} activeOpacity={0.7}>
       <View style={styles.menuIconWrap}>
         <MaterialCommunityIcons name="help-circle-outline" size={20} color={COLORS.primary} />
       </View>

@@ -289,7 +289,7 @@ const renderBookingCard = ({ item }: { item: any }) => (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Bookings</Text>
-        <TouchableOpacity style={styles.helpButton} onPress={() => router.push('/support/chat')}>
+        <TouchableOpacity style={styles.helpButton} onPress={() => router.push('/support' as any)}>
           <MaterialCommunityIcons name="headset" size={24} color={COLORS.textLight} />
         </TouchableOpacity>
       </View>
@@ -324,7 +324,7 @@ const renderBookingCard = ({ item }: { item: any }) => (
       ) : (
         <FlatList
           data={filteredBookings}
-          keyExtractor={item => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderBookingCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

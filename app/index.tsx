@@ -57,10 +57,17 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../assets/images/logo.png')} 
-        style={styles.logo} 
+        source={require('../assets/images/SPL.png')} 
+        style={styles.fullImage} 
         resizeMode="contain" 
       />
+      <View style={styles.logoContainer}>
+        <Image 
+          source={require('../assets/images/logo.png')} 
+          style={styles.logo} 
+          resizeMode="contain" 
+        />
+      </View>
     </View>
   );
 }
@@ -68,12 +75,23 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#008488', 
+    justifyContent: 'flex-end',
+  },
+  fullImage: {
+    width: width,
+    height: width * (1600 / 900),
+  },
+  logoContainer: {
+    position: 'absolute',
+    top: '15%',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    backgroundColor: '#006D6F', // Solid Brand Color
   },
   logo: {
-    width: width * 0.6,
-    height: width * 0.6,
+    width: width * 0.7,
+    height: 120,
   },
 });
+

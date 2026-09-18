@@ -5,13 +5,13 @@ import {
   Keyboard,
   Platform,
   StatusBar,
+  ScrollView,
+  KeyboardAvoidingView,
+  ViewStyle,
+  StyleProp,
 } from 'react-native';
-import type { ViewStyle, StyleProp } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { COLORS } from '../theme/theme';
-
-const AwareScrollView = KeyboardAwareScrollView as any;
 
 interface ScreenWrapperProps {
   children: React.ReactNode;
@@ -68,8 +68,12 @@ export default function ScreenWrapper({
   }
 
   return (
-    <View style={[styles.container, { backgroundColor }, style]}>
-      <AwareScrollView
+    <KeyboardAvoidingView 
+      style={[styles.container, { backgroundColor }, style]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? extraScrollHeight : 0}
+    >
+      <ScrollView
         style={[styles.scrollView, scrollViewStyle]}
         contentContainerStyle={[
           styles.scrollContent,
@@ -81,18 +85,14 @@ export default function ScreenWrapper({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         onScrollBeginDrag={handleScrollBeginDrag}
-extraScrollHeight={extraScrollHeight}
-        extraHeight={0}
-        enableResetScrollToCoords={false}
-        enableAutomaticScroll
         showsVerticalScrollIndicator={false}
         bounces
         alwaysBounceVertical
-       refreshControl={refreshControl as any}
+        refreshControl={refreshControl as any}
         scrollEventThrottle={16}
       >
         {children}
-      </AwareScrollView>
+      </ScrollView>
 
       {bottomButton && (
         <View
@@ -104,7 +104,7 @@ extraScrollHeight={extraScrollHeight}
           {bottomButton}
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

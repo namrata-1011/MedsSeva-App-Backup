@@ -2,7 +2,7 @@
   "expo": {
     "name": "MedsSeva",
     "slug": "medsseva-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "newArchEnabled": false,
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
@@ -61,12 +61,11 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/logo.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#006D6F",
+          "image": "./assets/images/Splash.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#086E73",
           "dark": {
-            "backgroundColor": "#005255"
+            "backgroundColor": "#086E73"
           }
         }
       ],

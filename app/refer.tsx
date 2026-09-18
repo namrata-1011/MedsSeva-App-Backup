@@ -51,7 +51,7 @@ export default function ReferAndEarnScreen() {
 
   const getShareableImageUri = async (): Promise<string | null> => {
     try {
-      const asset = Asset.fromModule(require('../assets/images/refer_earn_banner.jpg'));
+      const asset = Asset.fromModule(require('../assets/images/refer&earn.png'));
       await asset.downloadAsync();
       return asset.localUri || asset.uri || null;
     } catch (e) {
@@ -75,14 +75,17 @@ export default function ReferAndEarnScreen() {
 
   const handleShare = async () => {
     try {
+      await Clipboard.setStringAsync(shareMessage);
+      showToast('Text copied! You can paste it when sharing the image.');
+
       const isAvailable = await Sharing.isAvailableAsync();
       const imageUri = await getShareableImageUri();
 
       if (isAvailable && imageUri) {
         await Sharing.shareAsync(imageUri, {
-          mimeType: 'image/jpeg',
+          mimeType: 'image/png',
           dialogTitle: 'Share MedsSeva Referral',
-          UTI: 'public.jpeg',
+          UTI: 'public.png',
         });
       } else {
         await Share.share({
@@ -100,14 +103,17 @@ export default function ReferAndEarnScreen() {
 
   const handleWhatsappInvite = async () => {
     try {
+      await Clipboard.setStringAsync(shareMessage);
+      showToast('Message copied! Paste it in WhatsApp chat.');
+
       const isAvailable = await Sharing.isAvailableAsync();
       const imageUri = await getShareableImageUri();
 
       if (isAvailable && imageUri) {
         await Sharing.shareAsync(imageUri, {
-          mimeType: 'image/jpeg',
+          mimeType: 'image/png',
           dialogTitle: 'Share MedsSeva Referral',
-          UTI: 'public.jpeg',
+          UTI: 'public.png',
         });
       } else {
         await Linking.openURL(`whatsapp://send?text=${encodeURIComponent(shareMessage)}`);
@@ -135,9 +141,9 @@ export default function ReferAndEarnScreen() {
         {/* Banner Poster Card */}
         <View style={styles.bannerCard}>
           <Image
-            source={require('../assets/images/refer_earn_banner.jpg')}
+            source={require('../assets/images/refer&earn.png')}
             style={styles.bannerImage}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </View>
 
