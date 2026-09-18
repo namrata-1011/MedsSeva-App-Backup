@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  RefreshControl, StatusBar, ActivityIndicator, ScrollView, Platform
+  RefreshControl, StatusBar, ActivityIndicator, ScrollView, Platform, Share, Linking
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -147,7 +147,7 @@ export default function DoctorHomeScreen() {
               <MaterialCommunityIcons name="moped" size={26} color="#FFFFFF" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.actionBtnTitle}>Order Sample Pickup</Text>
+              <Text style={styles.actionBtnTitle}>Book Request</Text>
               <Text style={styles.actionBtnSub}>Request MedsSeva phlebotomist to collect sample from clinic/home</Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={22} color="#FFFFFF" />
@@ -162,7 +162,7 @@ export default function DoctorHomeScreen() {
               <MaterialCommunityIcons name="flask-outline" size={26} color="#FFFFFF" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.actionBtnTitle}>Sample Already Collected</Text>
+              <Text style={styles.actionBtnTitle}>Already Collected</Text>
               <Text style={styles.actionBtnSub}>Hand over collected clinic sample directly to testing lab</Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={22} color="#FFFFFF" />
@@ -266,17 +266,47 @@ export default function DoctorHomeScreen() {
                   </View>
 
                   {r.report ? (
-                    <TouchableOpacity
-                      style={styles.reportBtn}
-                      onPress={() => {
-                        if (r.report?.id) {
-                          router.push(`/report/${r.report.id}` as any);
-                        }
-                      }}
-                    >
-                      <MaterialCommunityIcons name="file-document-outline" size={16} color="#FFFFFF" />
-                      <Text style={styles.reportBtnText}>View Report</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => {
+                           if (r.report?.pdfUrl) {
+                             Share.share({
+                               message: `Lab Report for ${r.patientName}. View here: ${r.report.pdfUrl}`
+                             });
+                           } else {
+                             showError('Report PDF not available to share yet');
+                           }
+                        }}
+                      >
+                        <MaterialCommunityIcons name="share-variant" size={16} color="#006D6F" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.iconBtn}
+                        onPress={() => {
+                           if (r.report?.pdfUrl) {
+                             Linking.openURL(r.report.pdfUrl);
+                           } else {
+                             showError('Report PDF not available to download yet');
+                           }
+                        }}
+                      >
+                        <MaterialCommunityIcons name="download" size={16} color="#006D6F" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.reportBtn}
+                        onPress={() => {
+                          if (r.report?.id) {
+                            router.push(`/report/${r.report.id}` as any);
+                          }
+                        }}
+                      >
+                        <MaterialCommunityIcons name="file-document-outline" size={16} color="#FFFFFF" />
+                        <Text style={styles.reportBtnText}>View</Text>
+                      </TouchableOpacity>
+                    </View>
                   ) : (
                     <View style={styles.pendingReportPill}>
                       <Text style={styles.pendingReportText}>Awaiting Lab Report</Text>
@@ -292,7 +322,7 @@ export default function DoctorHomeScreen() {
               <MaterialCommunityIcons name="flask-empty-outline" size={48} color="#94A3B8" />
               <Text style={styles.emptyTitle}>No Patient Referrals Yet</Text>
               <Text style={styles.emptySub}>
-                Use the buttons above to order sample pickup or register collected clinic samples.
+                Use the buttons above to book a request or register collected clinic samples.
               </Text>
             </View>
           )
@@ -426,6 +456,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+  },
+  iconBtn: {
+    backgroundColor: '#CCFBF1',
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   reportBtnText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   pendingReportPill: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },

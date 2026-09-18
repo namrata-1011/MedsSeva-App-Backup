@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showSuccess, showError } from '../../src/store/toastStore';
+import * as Location from 'expo-location';
 
 export default function DoctorNewSampleScreen() {
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function DoctorNewSampleScreen() {
   // Branches for Direct Handover
   const [branches, setBranches] = useState<any[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
 
   // Tests Catalog & Selection
   const [availableTests, setAvailableTests] = useState<any[]>([]);
@@ -40,14 +42,32 @@ export default function DoctorNewSampleScreen() {
   useEffect(() => {
     const loadCatalogs = async () => {
       try {
+        let lat, lng;
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            // Use last known position for instant loading, fallback to current position with low accuracy if null
+            let loc = await Location.getLastKnownPositionAsync();
+            if (!loc) {
+              loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+            }
+            if (loc) {
+              lat = loc.coords.latitude;
+              lng = loc.coords.longitude;
+            }
+          }
+        } catch (e) {
+          console.warn('Location permission error', e);
+        }
+
         const [testsRes, branchesRes] = await Promise.all([
           apiService.getAllTests(),
-          apiService.getBranches ? apiService.getBranches() : Promise.resolve([]),
+          apiService.getBranches ? apiService.getBranches({ lat, lng }) : Promise.resolve([]),
         ]);
         setAvailableTests(Array.isArray(testsRes) ? testsRes : testsRes?.tests || []);
-        if (Array.isArray(branchesRes) && branchesRes.length > 0) {
-          setBranches(branchesRes);
-          setSelectedBranchId(branchesRes[0].id);
+        const branchesData = Array.isArray(branchesRes) ? branchesRes : (branchesRes?.data || []);
+        if (branchesData.length > 0) {
+          setBranches(branchesData);
         }
       } catch (err) {
         console.warn('Failed to load tests or branches', err);
@@ -160,7 +180,7 @@ export default function DoctorNewSampleScreen() {
               color={mode === 'PICKUP' ? '#FFFFFF' : '#64748B'}
             />
             <Text style={[styles.modeTabText, mode === 'PICKUP' && styles.modeTabTextActive]}>
-              Order Pickup
+              Book Request
             </Text>
           </TouchableOpacity>
 
@@ -263,23 +283,51 @@ export default function DoctorNewSampleScreen() {
             <>
               <Text style={styles.fieldLabel}>Target Lab Branch *</Text>
               {branches.length > 0 ? (
-                <View style={styles.branchSelectWrap}>
-                  {branches.map(b => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[styles.branchChip, selectedBranchId === b.id && styles.branchChipActive]}
-                      onPress={() => setSelectedBranchId(b.id)}
-                    >
-                      <MaterialCommunityIcons
-                        name="hospital-building"
-                        size={14}
-                        color={selectedBranchId === b.id ? '#FFFFFF' : '#0F766E'}
-                      />
-                      <Text style={[styles.branchText, selectedBranchId === b.id && styles.branchTextActive]}>
-                        {b.name} ({b.city || 'Central Lab'})
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ marginBottom: 14, zIndex: 10 }}>
+                  <TouchableOpacity
+                    style={styles.dropdownSelector}
+                    activeOpacity={0.8}
+                    onPress={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
+                  >
+                    <MaterialCommunityIcons name="hospital-building" size={18} color="#0F766E" />
+                    <Text style={styles.dropdownSelectedText}>
+                      {branches.find(b => b.id === selectedBranchId)?.name || 'Select Branch'} 
+                      {branches.find(b => b.id === selectedBranchId)?.city && ` (${branches.find(b => b.id === selectedBranchId)?.city})`}
+                    </Text>
+                    <MaterialCommunityIcons 
+                      name={isBranchDropdownOpen ? "chevron-up" : "chevron-down"} 
+                      size={22} 
+                      color="#64748B" 
+                    />
+                  </TouchableOpacity>
+
+                  {isBranchDropdownOpen && (
+                    <View style={styles.dropdownOptionsContainer}>
+                      {branches.map(b => (
+                        <TouchableOpacity
+                          key={b.id}
+                          style={[
+                            styles.dropdownOption, 
+                            selectedBranchId === b.id && styles.dropdownOptionActive
+                          ]}
+                          onPress={() => {
+                            setSelectedBranchId(b.id);
+                            setIsBranchDropdownOpen(false);
+                          }}
+                        >
+                          <Text style={[
+                            styles.dropdownOptionText, 
+                            selectedBranchId === b.id && styles.dropdownOptionTextActive
+                          ]}>
+                            {b.name} ({b.city || 'Central Lab'})
+                          </Text>
+                          {selectedBranchId === b.id && (
+                            <MaterialCommunityIcons name="check" size={18} color="#006D6F" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </View>
               ) : (
                 <Text style={styles.helperNotice}>Default Central Diagnostic Lab</Text>
@@ -382,7 +430,7 @@ export default function DoctorNewSampleScreen() {
                 style={{ marginRight: 8 }}
               />
               <Text style={styles.submitBtnText}>
-                {mode === 'PICKUP' ? 'Dispatch Pickup Order' : 'Submit Lab Handover'}
+                {mode === 'PICKUP' ? 'Book Request' : 'Already Collected'}
               </Text>
             </>
           )}
@@ -477,21 +525,53 @@ const styles = StyleSheet.create({
   genderChipText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
   genderChipTextActive: { color: '#FFFFFF' },
 
-  branchSelectWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
-  branchChip: {
+  dropdownSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 48,
   },
-  branchChipActive: { backgroundColor: '#006D6F', borderColor: '#006D6F' },
-  branchText: { fontSize: 12, fontWeight: '700', color: '#334155' },
-  branchTextActive: { color: '#FFFFFF' },
+  dropdownSelectedText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#0F172A',
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  dropdownOptionsContainer: {
+    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    overflow: 'hidden',
+    ...SHADOWS.soft,
+  },
+  dropdownOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  dropdownOptionActive: {
+    backgroundColor: '#F0FDFA',
+  },
+  dropdownOptionText: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '500',
+  },
+  dropdownOptionTextActive: {
+    color: '#006D6F',
+    fontWeight: '700',
+  },
   helperNotice: { fontSize: 12, color: '#64748B', fontStyle: 'italic', marginBottom: 14 },
 
   searchInput: {

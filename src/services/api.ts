@@ -109,7 +109,7 @@ getPaymentMethods: (mobile: string) => api.get(`/payment-methods?mobile=${encode
 getMyReports: () => api.get('/reports/my-reports').then(res => res.data),
   getReportById: (id: string) => api.get(`/reports/${id}`).then(res => res.data),
  getAvailableSlots: (date: string) => api.get(`/bookings/available-slots?date=${encodeURIComponent(date)}`).then(res => res.data),
-getBranches: (params?: { isActive?: boolean; homeCollection?: boolean; labVisit?: boolean }) =>
+getBranches: (params?: { isActive?: boolean; homeCollection?: boolean; labVisit?: boolean; lat?: number; lng?: number }) =>
     api.get('/branches', { params }).then(res => res.data),
   getBranchById: (id: string) => api.get(`/branches/${id}`).then(res => res.data),
 updateMe: (data: { name?: string; email?: string; dob?: string; gender?: string; bloodGroup?: string; altMobile?: string }) => api.patch('/users/me', data).then(res => res.data),

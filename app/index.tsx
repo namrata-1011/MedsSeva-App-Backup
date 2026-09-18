@@ -57,7 +57,7 @@ export default function SplashScreen() {
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../assets/images/SPL.png')} 
+        source={require('../assets/images/spl.png')} 
         style={styles.fullImage} 
         resizeMode="contain" 
       />
