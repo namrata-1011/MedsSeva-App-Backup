@@ -16,7 +16,7 @@ export default function DoctorNewSampleScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const initialMode = params.mode === 'HANDOVER' ? 'HANDOVER' : 'PICKUP';
+  const initialMode = (params.defaultMode || params.mode) === 'HANDOVER' ? 'HANDOVER' : 'PICKUP';
 
   const [mode, setMode] = useState<'PICKUP' | 'HANDOVER'>(initialMode);
   const [patientName, setPatientName] = useState('');
@@ -168,36 +168,38 @@ export default function DoctorNewSampleScreen() {
           <Text style={styles.headerTitle}>New Patient Test Request</Text>
         </View>
 
-        {/* Mode Selector Toggle */}
-        <View style={styles.modeToggle}>
-          <TouchableOpacity
-            style={[styles.modeTab, mode === 'PICKUP' && styles.modeTabActive]}
-            onPress={() => setMode('PICKUP')}
-          >
-            <MaterialCommunityIcons
-              name="moped"
-              size={18}
-              color={mode === 'PICKUP' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text style={[styles.modeTabText, mode === 'PICKUP' && styles.modeTabTextActive]}>
-              Book Request
-            </Text>
-          </TouchableOpacity>
+        {/* Mode Selector Toggle (Hidden if lockMode is true) */}
+        {params.lockMode !== 'true' && (
+          <View style={styles.modeToggle}>
+            <TouchableOpacity
+              style={[styles.modeTab, mode === 'PICKUP' && styles.modeTabActive]}
+              onPress={() => setMode('PICKUP')}
+            >
+              <MaterialCommunityIcons
+                name="moped"
+                size={18}
+                color={mode === 'PICKUP' ? '#FFFFFF' : '#64748B'}
+              />
+              <Text style={[styles.modeTabText, mode === 'PICKUP' && styles.modeTabTextActive]}>
+                Book Request
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.modeTab, mode === 'HANDOVER' && styles.modeTabActive]}
-            onPress={() => setMode('HANDOVER')}
-          >
-            <MaterialCommunityIcons
-              name="flask-outline"
-              size={18}
-              color={mode === 'HANDOVER' ? '#FFFFFF' : '#64748B'}
-            />
-            <Text style={[styles.modeTabText, mode === 'HANDOVER' && styles.modeTabTextActive]}>
-              Already Collected
-            </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.modeTab, mode === 'HANDOVER' && styles.modeTabActive]}
+              onPress={() => setMode('HANDOVER')}
+            >
+              <MaterialCommunityIcons
+                name="flask-outline"
+                size={18}
+                color={mode === 'HANDOVER' ? '#FFFFFF' : '#64748B'}
+              />
+              <Text style={[styles.modeTabText, mode === 'HANDOVER' && styles.modeTabTextActive]}>
+                Already Collected
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.infoBox}>
           <MaterialCommunityIcons

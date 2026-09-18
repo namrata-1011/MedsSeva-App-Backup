@@ -1,11 +1,12 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../src/theme/theme';
 
 export default function DoctorLayout() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const tabBarHeight = 60 + insets.bottom;
 
   return (
@@ -41,6 +42,12 @@ export default function DoctorLayout() {
       />
       <Tabs.Screen
         name="new-sample"
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            router.navigate('/(doctor)/new-sample?lockMode=false');
+          }
+        }}
         options={{
           title: 'Collect Sample',
           tabBarIcon: ({ color, size }) => (

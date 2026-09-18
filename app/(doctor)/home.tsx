@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity, Image,
   RefreshControl, StatusBar, ActivityIndicator, ScrollView, Platform, Share, Linking
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
@@ -22,6 +22,7 @@ interface DoctorPortalData {
     designation: string;
     commissionRate: number;
     paymentCycle: string;
+    avatarUrl?: string;
     branch?: { name: string; city: string };
   };
   summary: {
@@ -47,6 +48,10 @@ interface DoctorPortalData {
     commissionAmount: number;
     payoutStatus: string;
     tests: Array<{ name: string; price: number }>;
+    collectionMode?: string;
+    collectionOtp?: string;
+    assignedPartner?: { labName: string; mobile?: string } | null;
+    statusTimeline?: Array<{ status: string; createdAt: string; note?: string }>;
     report?: {
       id: string;
       status: string;
@@ -77,9 +82,11 @@ export default function DoctorHomeScreen() {
     }
   }, [period]);
 
-  useEffect(() => {
-    loadData(period);
-  }, [period, loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData(period);
+    }, [period, loadData])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -117,7 +124,11 @@ export default function DoctorHomeScreen() {
         <View style={styles.headerCard}>
           <View style={styles.headerTop}>
             <View style={styles.doctorAvatar}>
-              <MaterialCommunityIcons name="stethoscope" size={28} color="#FFFFFF" />
+              {data?.doctor?.avatarUrl ? (
+                <Image source={{ uri: data.doctor.avatarUrl }} style={{ width: '100%', height: '100%', borderRadius: 28 }} />
+              ) : (
+                <MaterialCommunityIcons name="stethoscope" size={28} color="#FFFFFF" />
+              )}
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <View style={styles.badgeRow}>
@@ -140,7 +151,7 @@ export default function DoctorHomeScreen() {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.pickupBtn]}
-            onPress={() => router.navigate('/(doctor)/new-sample')}
+            onPress={() => router.navigate('/(doctor)/new-sample?defaultMode=PICKUP&lockMode=true')}
             activeOpacity={0.88}
           >
             <View style={styles.actionIconBox}>
@@ -155,7 +166,7 @@ export default function DoctorHomeScreen() {
 
           <TouchableOpacity
             style={[styles.actionBtn, styles.handoverBtn]}
-            onPress={() => router.navigate('/(doctor)/new-sample')}
+            onPress={() => router.navigate('/(doctor)/new-sample?defaultMode=HANDOVER&lockMode=true')}
             activeOpacity={0.88}
           >
             <View style={[styles.actionIconBox, { backgroundColor: '#0D9488' }]}>
@@ -313,6 +324,41 @@ export default function DoctorHomeScreen() {
                     </View>
                   )}
                 </View>
+
+                {/* Tracking & OTP Section for Doctor */}
+                {!r.report && r.collectionMode === 'HOME' && (
+                  <TouchableOpacity 
+                    style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F1F5F9' }}
+                    onPress={() => router.push(`/tracking/${r.bookingId}` as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <MaterialCommunityIcons name="map-marker-path" size={14} color="#64748B" />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>Tracking Status</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {r.collectionOtp && r.bookingStatus !== 'COMPLETED' && r.bookingStatus !== 'CANCELLED' && (
+                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                              <MaterialCommunityIcons name="shield-key-outline" size={12} color="#B45309" />
+                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#B45309' }}>OTP: {r.collectionOtp}</Text>
+                           </View>
+                        )}
+                        <MaterialCommunityIcons name="chevron-right" size={16} color="#94A3B8" />
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#334155', fontWeight: '600' }}>
+                      {r.bookingStatus === 'WAITING_FOR_PARTNER' ? 'Waiting for Phlebotomist Assignment' :
+                       r.bookingStatus === 'ACCEPTED' ? `Assigned to: ${r.assignedPartner?.labName || 'Collector'}` :
+                       r.bookingStatus === 'ON_THE_WAY' ? `Collector is on the way` :
+                       r.bookingStatus === 'REACHED_LOCATION' ? `Collector has reached the clinic` :
+                       r.bookingStatus === 'SAMPLE_COLLECTED' ? `Sample collected, on the way to lab` :
+                       r.bookingStatus === 'DELIVERING_TO_BRANCH' ? `Sample in-transit to branch` :
+                       r.bookingStatus === 'DELIVERED_TO_LAB' ? `Sample reached lab. Testing in progress...` :
+                       r.bookingStatus}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })

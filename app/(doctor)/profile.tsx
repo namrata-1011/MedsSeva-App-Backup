@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  StatusBar, ActivityIndicator, Alert
+  StatusBar, ActivityIndicator, Alert, Image
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +13,8 @@ import { tokenStorage } from '../../src/utils/tokenStorage';
 import { logout } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
+import * as ImagePicker from 'expo-image-picker';
+import { showSuccess, showError } from '../../src/store/toastStore';
 
 export default function DoctorProfileScreen() {
   const router = useRouter();
@@ -22,11 +24,89 @@ export default function DoctorProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = () => {
     apiService.getDoctorPortalData('ALL')
       .then(res => setData(res))
       .catch(err => console.error('Failed to load profile', err))
       .finally(() => setIsLoading(false));
-  }, []);
+  };
+
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handlePickAvatar = async () => {
+    Alert.alert(
+      'Upload Profile Photo',
+      'Choose a source to upload your photo',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== 'granted') {
+                showError('Permission required to access camera.');
+                return;
+              }
+              const result = await ImagePicker.launchCameraAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+              });
+              processImageResult(result);
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            try {
+              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (status !== 'granted') {
+                showError('Permission required to access gallery.');
+                return;
+              }
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+              });
+              processImageResult(result);
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const processImageResult = async (result: any) => {
+    try {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploadingAvatar(true);
+        const asset = result.assets[0];
+        const fileName = asset.uri.split('/').pop() || 'avatar.jpg';
+        const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        
+        await apiService.uploadAvatar(asset.uri, mimeType, fileName);
+        showSuccess('Profile photo updated successfully!');
+        loadProfile(); // Refresh data to get new avatar URL
+      }
+    } catch (err: any) {
+      console.error('Avatar upload error', err);
+      showError(err?.response?.data?.error || 'Failed to upload profile photo');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -79,8 +159,25 @@ export default function DoctorProfileScreen() {
             {/* Identity Card */}
             <View style={styles.card}>
               <View style={styles.avatarRow}>
-                <View style={styles.avatarCircle}>
-                  <MaterialCommunityIcons name="stethoscope" size={32} color="#FFFFFF" />
+                <View>
+                  {doc?.avatarUrl ? (
+                    <Image source={{ uri: doc.avatarUrl }} style={styles.avatarCircle} />
+                  ) : (
+                    <View style={styles.avatarCircle}>
+                      <MaterialCommunityIcons name="stethoscope" size={32} color="#FFFFFF" />
+                    </View>
+                  )}
+                  <TouchableOpacity 
+                    style={styles.editAvatarBtn} 
+                    onPress={handlePickAvatar}
+                    disabled={isUploadingAvatar}
+                  >
+                    {isUploadingAvatar ? (
+                       <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                       <MaterialCommunityIcons name="camera" size={14} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
                 </View>
                 <View style={{ flex: 1, marginLeft: 14 }}>
                   <Text style={styles.doctorName}>Dr. {doc?.name || 'Doctor'}</Text>
@@ -176,6 +273,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#006D6F',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  editAvatarBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: -4,
+    backgroundColor: '#0F766E',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   doctorName: { fontSize: 18, fontWeight: '900', color: '#0F172A' },
   doctorSub: { fontSize: 12, color: '#64748B', marginTop: 2 },
