@@ -9,7 +9,8 @@ const getBaseUrl = () => {
   if (envUrl && envUrl.trim()) {
     return envUrl.trim().replace(/\/+$/, '');
   }
-  return 'https://medsseva-backend-cnud.onrender.com/api';
+  // Changed to local IP so APK points to your local backend running on port 5000
+  return 'http://192.168.2.103:5000/api';
 };
 
 const api = axios.create({
