@@ -9,6 +9,7 @@ import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
 import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
 import { apiService } from '../../src/services/api';
+import QRCode from 'react-native-qrcode-svg';
 
 export default function ReportDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,22 +26,41 @@ const { data: report, isLoading } = useQuery({
       if (!found) throw new Error('Report not found');
 
       const slotDate = new Date(found.reportedDate || found.createdAt).toLocaleDateString('en-IN', {
-        day: '2-digit', month: 'short', year: 'numeric',
+        day: '2-digit', month: '2-digit', year: 'numeric',
+      });
+      const timeStr = new Date(found.reportedDate || found.createdAt).toLocaleTimeString('en-IN', {
+        hour: '2-digit', minute: '2-digit'
       });
 
       const age = found.booking?.patientAge ? `${found.booking.patientAge}` : '-';
       const gender = found.booking?.patientGender || '-';
+
+      let refDoc = found.booking?.referringDoctor?.name
+        ? `Dr. ${found.booking.referringDoctor.name}${
+            found.booking.referringDoctor.qualification || found.booking.referringDoctor.designation 
+              ? ` - ${[found.booking.referringDoctor.qualification, found.booking.referringDoctor.designation].filter(Boolean).join(', ')}`
+              : ''
+          }`
+        : null;
+      if (!refDoc && found.booking?.partnerNote?.startsWith('Ref:')) {
+        refDoc = found.booking.partnerNote;
+      }
+      if (!refDoc) {
+        refDoc = found.doctorName || 'Self';
+      }
 
       return {
         id: found.id,
         testName: found.testName || 'Diagnostic Test',
         patientName: found.booking?.patientName || 'Patient',
         ageSex: `${age} / ${gender}`,
-        referredBy: 'Self',
+        referredBy: refDoc,
         regNo: found.booking?.bookingCode || found.id.substring(0, 8).toUpperCase(),
-        registeredOn: slotDate,
+        mobile: found.booking?.user?.mobile || found.booking?.patientMobile || '',
+        address: found.booking?.address ? `${found.booking.address.line1 || ''}, ${found.booking.address.city || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '') : '',
+        registeredOn: `${slotDate} ${timeStr}`,
         collectedOn: slotDate,
-        reportedOn: slotDate,
+        reportedOn: `${slotDate} ${timeStr}`,
         clinicalNotes: found.clinicalNotes || 'Parameter values within reference intervals. Clinical correlation advised.',
         verifiedBy: found.verifiedBy?.name || null,
         branch: found.booking?.branch?.name || null,
@@ -215,34 +235,50 @@ return (
               <Text style={styles.metaLabel}>Age / Sex</Text>
               <Text style={styles.metaValue}>: {report.ageSex}</Text>
             </View>
+            {report.mobile ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Mobile</Text>
+                <Text style={styles.metaValue}>: {report.mobile}</Text>
+              </View>
+            ) : null}
+            {report.address ? (
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabel}>Address</Text>
+                <Text style={styles.metaValue} numberOfLines={2}>: {report.address}</Text>
+              </View>
+            ) : null}
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>Referred By</Text>
+              <Text style={styles.metaLabel}>Referred by</Text>
               <Text style={styles.metaValue}>: {report.referredBy}</Text>
             </View>
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>Reg. No.</Text>
+              <Text style={styles.metaLabel}>Reg. no.</Text>
               <Text style={styles.metaValue}>: {report.regNo}</Text>
             </View>
-            {report.branch && (
-              <View style={styles.metaRow}>
-                <Text style={styles.metaLabel}>Branch</Text>
-                <Text style={styles.metaValue}>: {report.branch}</Text>
-              </View>
-            )}
           </View>
 
           <View style={styles.barcodeColumn}>
-            <Text style={styles.barcodeVisual}>||||| || || |||| ||| |</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', width: '100%', marginBottom: 12 }}>
+              <View style={{ alignItems: 'flex-end', marginRight: 16 }}>
+                <Text style={styles.barcodeVisual}>||||| || || |||| |||</Text>
+                <Text style={{ fontSize: 8, color: '#64748B', marginTop: 2 }}>{report.regNo}</Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <QRCode value="https://play.google.com/store/apps/details?id=com.medssevaglobal.app" size={45} />
+                <Text style={{ fontSize: 7, color: '#64748B', marginTop: 4 }}>Scan to verify</Text>
+              </View>
+            </View>
+
             <View style={styles.metaRowRight}>
-              <Text style={styles.metaLabelRight}>Registered</Text>
+              <Text style={styles.metaLabelRight}>Registered on</Text>
               <Text style={styles.metaValueRight}>: {report.registeredOn}</Text>
             </View>
             <View style={styles.metaRowRight}>
-              <Text style={styles.metaLabelRight}>Collected</Text>
+              <Text style={styles.metaLabelRight}>Collected on</Text>
               <Text style={styles.metaValueRight}>: {report.collectedOn}</Text>
             </View>
             <View style={styles.metaRowRight}>
-              <Text style={styles.metaLabelRight}>Reported</Text>
+              <Text style={styles.metaLabelRight}>Reported on</Text>
               <Text style={styles.metaValueRight}>: {report.reportedOn}</Text>
             </View>
           </View>
