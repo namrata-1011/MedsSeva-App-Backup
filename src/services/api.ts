@@ -5,11 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../utils/tokenStorage';
 
 const getBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, '');
-  }
-  // Changed to local IP so APK points to your local backend running on port 5000
+  // Force local IP for APK testing to bypass EAS secrets pointing to production
   return 'http://192.168.2.103:5000/api';
 };
 
