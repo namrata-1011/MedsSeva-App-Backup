@@ -7,6 +7,8 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { Image } from 'expo-image';
@@ -51,26 +53,27 @@ export default function PartnerProfileScreen() {
       .finally(() => setIsLoading(false));
   }, []);
 
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+
   const handleAvatarPress = async () => {
     if (uploadLockRef.current || isUploadingAvatar) return;
+    setShowPhotoOptions(true);
+  };
 
-    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-    const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (libraryStatus !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
-      return;
+  const handlePhotoOptionSelect = async (option: 'camera' | 'gallery') => {
+    setShowPhotoOptions(false);
+    
+    if (option === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      await openCamera(status);
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
+        return;
+      }
+      await openGallery();
     }
-
-    Alert.alert(
-      'Update Profile Photo',
-      'Choose how you would like to update your photo.',
-      [
-        { text: 'Take Photo', onPress: () => openCamera(cameraStatus) },
-        { text: 'Choose from Gallery', onPress: () => openGallery() },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
   };
 
   const openCamera = async (cameraStatus: string) => {
@@ -304,6 +307,32 @@ export default function PartnerProfileScreen() {
         onConfirm={() => { setShowLogoutSheet(false); performLogout(); }}
         onCancel={() => setShowLogoutSheet(false)}
       />
+
+      <Modal transparent visible={showPhotoOptions} animationType="slide" onRequestClose={() => setShowPhotoOptions(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismissArea} onPress={() => setShowPhotoOptions(false)} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Update Profile Photo</Text>
+            
+            <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('camera')}>
+              <View style={[styles.photoOptionIcon, { backgroundColor: '#EEF2FF' }]}>
+                <MaterialCommunityIcons name="camera" size={24} color="#4F46E5" />
+              </View>
+              <Text style={styles.photoOptionText}>Take Photo</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('gallery')}>
+              <View style={[styles.photoOptionIcon, { backgroundColor: '#F0FDFA' }]}>
+                <MaterialCommunityIcons name="image-multiple" size={24} color="#0D9488" />
+              </View>
+              <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -372,4 +401,26 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#FEE2E2', marginBottom: 20, ...SHADOWS.soft,
   },
   versionText: { fontSize: 11, color: '#CBD5E1', textAlign: 'center' },
+  modalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  },
+  modalDismissArea: { flex: 1 },
+  modalContent: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40, ...SHADOWS.soft,
+  },
+  modalHandle: {
+    width: 40, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0',
+    alignSelf: 'center', marginBottom: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
+  photoOptionBtn: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  photoOptionIcon: {
+    width: 48, height: 48, borderRadius: 24, justifyContent: 'center',
+    alignItems: 'center', marginRight: 16,
+  },
+  photoOptionText: { fontSize: 16, fontWeight: '600', color: '#334155', flex: 1 },
 });

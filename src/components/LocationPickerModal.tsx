@@ -28,7 +28,10 @@ export function LocationPickerModal({ visible, onClose, onSelect, currentLocatio
       if (status !== 'granted') {
         throw new Error('Location permission not granted');
       }
-      const location = await Location.getCurrentPositionAsync({});
+      let location = await Location.getLastKnownPositionAsync({});
+      if (!location) {
+        location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      }
       const reverse = await Location.reverseGeocodeAsync(location.coords);
       const city = reverse[0]?.city || `${location.coords.latitude.toFixed(2)}, ${location.coords.longitude.toFixed(2)}`;
       onSelect(city);

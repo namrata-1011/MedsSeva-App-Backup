@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import RNBlobUtil from 'react-native-blob-util';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { Image } from 'expo-image';
 import { showSuccess, showError } from '../../src/store/toastStore';
 
 import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
@@ -190,7 +191,11 @@ const liveBooking = bookings;
           <View style={styles.partnerInfoRow}>
             <View style={styles.partnerAvatarWrap}>
               <View style={styles.partnerAvatar}>
-                <MaterialCommunityIcons name="account" size={32} color={COLORS.primary} />
+                {liveBooking?.assignedPartner?.user?.avatarUrl ? (
+                  <Image source={{ uri: liveBooking.assignedPartner.user.avatarUrl }} style={{ width: 56, height: 56, borderRadius: 28 }} />
+                ) : (
+                  <MaterialCommunityIcons name="account" size={32} color={COLORS.primary} />
+                )}
               </View>
               <View style={styles.onlineDot} />
             </View>

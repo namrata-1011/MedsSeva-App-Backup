@@ -62,9 +62,10 @@ const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
           setSelectedLocation(prev => prev ?? 'Location unavailable');
           return;
         }
-        const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        let location = await Location.getLastKnownPositionAsync({});
+        if (!location) {
+          location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        }
         const geocodes = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
@@ -549,7 +550,7 @@ const filteredTests = activeCategory === 'all'
             )}
           />
           <View style={styles.heroDotsRow}>
-            {activePromoList.map((_, idx) => (
+            {activePromoList.map((_: any, idx: number) => (
               <View
                 key={idx}
                 style={[styles.heroDot, activeStaticHeroIndex === idx && styles.heroDotActive]}
