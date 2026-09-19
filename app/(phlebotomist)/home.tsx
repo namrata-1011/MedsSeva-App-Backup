@@ -14,6 +14,7 @@ import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showSuccess, showError } from '../../src/store/toastStore';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { NotificationCenter } from '../../src/components/NotificationCenter';
+import { Image } from 'expo-image';
 
 interface BookingRequest {
   id: string;
@@ -205,7 +206,11 @@ export default function PhlebotomistHomeScreen() {
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
         <View style={styles.profileSection}>
           <View style={styles.avatar}>
-            <MaterialCommunityIcons name="needle" size={24} color={COLORS.primary} />
+            {user?.avatarUrl ? (
+              <Image source={{ uri: user.avatarUrl }} style={{ width: 42, height: 42, borderRadius: 21 }} />
+            ) : (
+              <MaterialCommunityIcons name="needle" size={24} color={COLORS.primary} />
+            )}
           </View>
           <View>
             <View style={[styles.roleBadge, !isFreelancer && styles.roleBadgeEmployee]}>

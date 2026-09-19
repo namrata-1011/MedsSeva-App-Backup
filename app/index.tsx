@@ -36,18 +36,18 @@ export default function SplashScreen() {
             } else {
               router.replace('/(tabs)' as any);
             }
-          }, 1500);
+          }, 1000);
         } else {
           // No session, redirect to onboarding
           setTimeout(() => {
             router.replace('/onboarding' as any);
-          }, 2000);
+          }, 1000);
         }
       } catch (error) {
         console.error('Session check failed:', error);
         setTimeout(() => {
           router.replace('/onboarding' as any);
-        }, 2000);
+        }, 1000);
       }
     };
 

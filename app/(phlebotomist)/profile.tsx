@@ -14,6 +14,13 @@ import { tokenStorage } from '../../src/utils/tokenStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SHADOWS } from '../../src/theme/theme';
 import { showSuccess } from '../../src/store/toastStore';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import Toast from 'react-native-toast-message';
+import { Modal, Pressable } from 'react-native';
+import { apiService } from '../../src/services/api';
+import { updateProfileAndPersist } from '../../src/store/slices/authSlice';
+import { useRef } from 'react';
 
 export default function PhlebotomistProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +37,94 @@ export default function PhlebotomistProfileScreen() {
   );
   const isFreelancer = !isEmployee;
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const uploadLockRef = useRef(false);
+
+  const handleAvatarPress = async () => {
+    if (uploadLockRef.current || isUploadingAvatar) return;
+    setShowPhotoOptions(true);
+  };
+
+  const handlePhotoOptionSelect = async (option: 'camera' | 'gallery') => {
+    setShowPhotoOptions(false);
+    
+    if (option === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      await openCamera(status);
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
+        return;
+      }
+      await openGallery();
+    }
+  };
+
+  const openCamera = async (cameraStatus: string) => {
+    if (cameraStatus !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow camera access to take a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      await processAndUpload(result.assets[0]);
+    }
+  };
+
+  const openGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      await processAndUpload(result.assets[0]);
+    }
+  };
+
+  const processAndUpload = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (uploadLockRef.current) return;
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const mimeType = asset.mimeType ?? 'image/jpeg';
+    const fileSize = asset.fileSize ?? 0;
+
+    if (!allowedTypes.includes(mimeType)) {
+      Toast.show({ type: 'error', text1: 'Invalid file type', text2: 'Only JPG, PNG, and WEBP images are supported.' });
+      return;
+    }
+
+    if (fileSize > 5 * 1024 * 1024) {
+      Toast.show({ type: 'error', text1: 'File too large', text2: 'Please choose an image smaller than 5MB.' });
+      return;
+    }
+
+    const ext = mimeType.split('/')[1] ?? 'jpg';
+    const fileName = `avatar_${Date.now()}.${ext}`;
+
+    uploadLockRef.current = true;
+    setIsUploadingAvatar(true);
+
+    try {
+      const response = await apiService.uploadAvatar(asset.uri, mimeType, fileName);
+      await dispatch(updateProfileAndPersist({ avatarUrl: response.avatarUrl }));
+      Toast.show({ type: 'success', text1: 'Profile image updated successfully.' });
+    } catch (error: any) {
+      const message = error?.response?.data?.error ?? 'Failed to upload profile image. Please try again.';
+      Toast.show({ type: 'error', text1: 'Upload failed', text2: message });
+    } finally {
+      setIsUploadingAvatar(false);
+      uploadLockRef.current = false;
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -70,9 +165,34 @@ export default function PhlebotomistProfileScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
         <View style={styles.profileCard}>
-          <View style={styles.avatarLarge}>
-            <MaterialCommunityIcons name="needle" size={32} color="#006D6F" />
-          </View>
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            onPress={handleAvatarPress}
+            disabled={isUploadingAvatar}
+            activeOpacity={0.8}
+          >
+            <View style={styles.avatarLarge}>
+              {user?.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <MaterialCommunityIcons name="needle" size={32} color="#006D6F" />
+              )}
+            </View>
+            {isUploadingAvatar ? (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : (
+              <View style={styles.editDot}>
+                <MaterialCommunityIcons name="camera" size={12} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
           <Text style={styles.profileName}>{user?.name || 'Phlebotomist'}</Text>
           <View style={styles.badgeRow}>
             <View style={[styles.roleBadge, !isFreelancer && { backgroundColor: '#EFF6FF' }]}>
@@ -164,6 +284,32 @@ export default function PhlebotomistProfileScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal transparent visible={showPhotoOptions} animationType="slide" onRequestClose={() => setShowPhotoOptions(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismissArea} onPress={() => setShowPhotoOptions(false)} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Update Profile Photo</Text>
+            
+            <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('camera')}>
+              <View style={[styles.photoOptionIcon, { backgroundColor: '#EEF2FF' }]}>
+                <MaterialCommunityIcons name="camera" size={24} color="#4F46E5" />
+              </View>
+              <Text style={styles.photoOptionText}>Take Photo</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('gallery')}>
+              <View style={[styles.photoOptionIcon, { backgroundColor: '#F0FDFA' }]}>
+                <MaterialCommunityIcons name="image-multiple" size={24} color="#0D9488" />
+              </View>
+              <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 }
@@ -200,6 +346,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...SHADOWS.sm,
   },
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: 10,
+  },
   avatarLarge: {
     width: 68,
     height: 68,
@@ -207,7 +357,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6F4F4',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    borderWidth: 2,
+    borderColor: '#CCFBF1',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editDot: {
+    position: 'absolute',
+    bottom: 0, right: 0,
+    width: 24, height: 24,
+    borderRadius: 12,
+    backgroundColor: '#006D6F',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   profileName: {
     fontSize: 18,
@@ -299,4 +475,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#E11D48',
   },
+  modalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  },
+  modalDismissArea: { flex: 1 },
+  modalContent: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40, ...SHADOWS.sm,
+  },
+  modalHandle: {
+    width: 40, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0',
+    alignSelf: 'center', marginBottom: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
+  photoOptionBtn: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  photoOptionIcon: {
+    width: 48, height: 48, borderRadius: 24, justifyContent: 'center',
+    alignItems: 'center', marginRight: 16,
+  },
+  photoOptionText: { fontSize: 16, fontWeight: '600', color: '#334155', flex: 1 },
 });

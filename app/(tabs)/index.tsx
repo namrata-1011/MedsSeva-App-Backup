@@ -904,9 +904,13 @@ const filteredTests = activeCategory === 'all'
             <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.drawerHeader}>
               <View style={styles.drawerUserBox}>
                 <View style={styles.drawerAvatar}>
-                  <Text style={styles.drawerAvatarText}>
-                    {(user?.name || 'G')[0].toUpperCase()}
-                  </Text>
+                  {user?.avatarUrl ? (
+                    <Image source={{ uri: user.avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                  ) : (
+                    <Text style={styles.drawerAvatarText}>
+                      {(user?.name || 'G')[0].toUpperCase()}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.drawerUserInfo}>
                   <Text style={styles.drawerUserName}>{user?.name || 'Guest'}</Text>
@@ -1700,7 +1704,7 @@ heroBannerImage: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 12,
+    rowGap: 12,
   },
   trustCard: {
     width: '48%',

@@ -72,9 +72,12 @@ export default function AddressScreen() {
         return;
       }
 
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
+      let location = await Location.getLastKnownPositionAsync({});
+      if (!location) {
+        location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+      }
 
       const [geocode] = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
@@ -83,14 +86,14 @@ export default function AddressScreen() {
 
       if (geocode) {
         const addressObj = {
-          label: 'Current Location',
-          addressLine1: `${geocode.name || ''} ${geocode.street || ''}`.trim() || 'Detected Location',
-          addressLine2: `${geocode.subregion || ''} ${geocode.district || ''}`.trim(),
+          mobile: user?.mobile || '9999999999',
+          type: 'Other',
+          line1: `${geocode.name || ''} ${geocode.street || ''}`.trim() || 'Detected Location',
+          line2: `${geocode.subregion || ''} ${geocode.district || ''}`.trim(),
           city: geocode.city || '',
           state: geocode.region || '',
           pincode: geocode.postalCode || '',
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
+          isDefault: true
         };
 
         const res = await apiService.addAddress(addressObj);
