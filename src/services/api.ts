@@ -4,8 +4,6 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../utils/tokenStorage';
 
-import Constants from 'expo-constants';
-
 const getBaseUrl = () => {
   // If running in Expo Go, dynamically detect laptop's IP address
   let hostUri = Constants.expoConfig?.hostUri;
