@@ -12,6 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY } from '../src/theme/theme';
 
 const { width, height } = Dimensions.get('window');
@@ -125,13 +126,11 @@ export default function OnboardingScreen() {
         </View>
 
         <TouchableOpacity 
-          style={styles.nextButtonShape} 
+          style={styles.nextButtonSimple} 
           onPress={handleNext}
-          activeOpacity={0.9}
+          activeOpacity={0.7}
         >
-          <Text style={styles.nextButtonText}>
-            {currentIndex === ONBOARDING_DATA.length - 1 ? 'Finish' : 'Next'}
-          </Text>
+          <MaterialCommunityIcons name="arrow-right" size={32} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
     </View>
@@ -283,26 +282,10 @@ const styles = StyleSheet.create({
     width: 12,
     backgroundColor: '#CBD5E1', 
   },
-  nextButtonShape: {
-    width: 170,
-    height: 80,
-    backgroundColor: COLORS.primary, 
-    borderTopLeftRadius: 80, 
+  nextButtonSimple: {
+    padding: 16,
+    marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-    paddingLeft: 16,
-    paddingTop: 12,
-  },
-  nextButtonText: {
-    ...TYPOGRAPHY.subtitle,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 18,
-    letterSpacing: 0.5,
   },
 });
