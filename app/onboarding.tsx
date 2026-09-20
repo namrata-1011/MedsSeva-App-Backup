@@ -9,7 +9,7 @@ import {
   StatusBar, 
   Platform 
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, TYPOGRAPHY } from '../src/theme/theme';
@@ -40,6 +40,7 @@ const ONBOARDING_DATA = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const insets = useSafeAreaInsets();
 
   const handleNext = () => {
     if (currentIndex < ONBOARDING_DATA.length - 1) {
@@ -107,7 +108,7 @@ export default function OnboardingScreen() {
       </View>
 
       {/* Bottom Controls (Custom Curved Button + Dash indicators retained!) */}
-      <View style={styles.footer} pointerEvents="box-none">
+      <View style={[styles.footer, { bottom: Math.max(insets.bottom, 10) }]} pointerEvents="box-none">
         <View style={styles.paginationContainer}>
           {ONBOARDING_DATA.map((_, index) => {
             const isActive = currentIndex === index;
