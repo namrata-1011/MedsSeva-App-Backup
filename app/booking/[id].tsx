@@ -282,10 +282,10 @@ if (isLoading) {
             <View style={styles.invoiceBtnRow}>
               <TouchableOpacity
                 style={[styles.invoiceBtn, styles.invoiceBtnPrimary, { flex: 1 }]}
-                onPress={() => handleOpenPdf(invoiceUrl)}
+                onPress={() => handleDownloadPdf(invoiceUrl, booking.payment?.invoiceNumber)}
               >
-                <MaterialCommunityIcons name="eye-outline" size={18} color="#fff" />
-                <Text style={styles.invoiceBtnText}>View Invoice</Text>
+                <MaterialCommunityIcons name="download-outline" size={18} color="#fff" />
+                <Text style={styles.invoiceBtnText}>Download Invoice</Text>
               </TouchableOpacity>
             </View>
             {booking.payment?.invoiceNumber && (
