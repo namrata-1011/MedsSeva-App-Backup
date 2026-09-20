@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Platform, Image } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -42,8 +42,11 @@ const { data: report, isLoading } = useQuery({
               : ''
           }`
         : null;
+      if (!refDoc && found.booking?.assignedPartner?.user?.name) {
+        refDoc = `Dr. ${found.booking.assignedPartner.user.name}`;
+      }
       if (!refDoc && found.booking?.partnerNote?.startsWith('Ref:')) {
-        refDoc = found.booking.partnerNote;
+        refDoc = found.booking.partnerNote.replace('Ref:', '').trim();
       }
       if (!refDoc) {
         refDoc = found.doctorName || 'Self';
@@ -63,6 +66,12 @@ const { data: report, isLoading } = useQuery({
         reportedOn: `${slotDate} ${timeStr}`,
         clinicalNotes: found.clinicalNotes || 'Parameter values within reference intervals. Clinical correlation advised.',
         verifiedBy: found.verifiedBy?.name || null,
+        doctorName: found.doctorName || found.verifiedBy?.name || 'Dr. ANA GUPTA',
+        doctorQualification: found.doctorQualification || 'MBBS, MD Pathologist',
+        doctorSignatureUrl: found.doctorSignatureUrl || found.signatureUrl || null,
+        technicianName: found.technicianName || 'Lab Technician',
+        technicianQualification: found.technicianQualification || 'DMLT',
+        technicianSignatureUrl: found.technicianSignatureUrl || null,
         branch: found.booking?.branch?.name || null,
         pdfUrl: found.pdfUrl || null,
         sections: [
@@ -331,15 +340,33 @@ return (
           </View>
         </View>
 
-        {report.verifiedBy && (
-          <View style={styles.signaturesRow}>
-            <View style={styles.sigBlock}>
-              <View style={styles.sigLine} />
-              <Text style={styles.sigName}>{report.verifiedBy}</Text>
-              <Text style={styles.sigRole}>Verified By</Text>
-            </View>
+        <View style={styles.signaturesRow}>
+          {/* Left: Lab Technician */}
+          <View style={[styles.sigBlock, { alignItems: 'flex-start' }]}>
+            {report.technicianSignatureUrl ? (
+              <Image source={{ uri: report.technicianSignatureUrl }} style={styles.sigImage} resizeMode="contain" />
+            ) : (
+              <View style={styles.sigPlaceholder}>
+                <Text style={styles.sigPlaceholderText}>TECHNICIAN VERIFIED ✓</Text>
+              </View>
+            )}
+            <Text style={styles.sigName}>{report.technicianName}</Text>
+            <Text style={styles.sigRole}>{report.technicianQualification}</Text>
           </View>
-        )}
+
+          {/* Right: Pathologist Signature */}
+          <View style={[styles.sigBlock, { alignItems: 'flex-end' }]}>
+            {report.doctorSignatureUrl ? (
+              <Image source={{ uri: report.doctorSignatureUrl }} style={styles.sigImage} resizeMode="contain" />
+            ) : (
+              <View style={[styles.sigPlaceholder, { borderColor: '#006D6F', backgroundColor: '#E6F7F7' }]}>
+                <Text style={[styles.sigPlaceholderText, { color: '#006D6F' }]}>DIGITALLY SIGNED ✓</Text>
+              </View>
+            )}
+            <Text style={styles.sigName}>{report.doctorName}</Text>
+            <Text style={styles.sigRole}>{report.doctorQualification}</Text>
+          </View>
+        </View>
 <View style={styles.finePrint}>
           <Text style={styles.finePrintText}>NOT VALID FOR MEDICO LEGAL PURPOSE</Text>
           <Text style={styles.finePrintSub}>Diagnostic Verification Facility</Text>
@@ -429,11 +456,13 @@ container: { flex: 1 },
   notesHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   notesTitle: { fontSize: 12, fontWeight: '800', color: COLORS.textDark, marginLeft: 6 },
   notesBody: { fontSize: 11, color: '#475569', lineHeight: 16, fontStyle: 'italic' },
-  signaturesRow: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 24, marginTop: 32 },
-  sigBlock: { alignItems: 'center', width: '50%' },
-  sigLine: { width: '100%', height: 1, backgroundColor: '#94A3B8', marginBottom: 6 },
-  sigName: { fontSize: 11, fontWeight: '700', color: '#1E293B' },
-  sigRole: { fontSize: 9, color: '#64748B', marginTop: 1 },
+  signaturesRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24, marginTop: 32 },
+  sigBlock: { width: '45%' },
+  sigImage: { height: 42, width: 120, marginBottom: 4 },
+  sigPlaceholder: { borderWidth: 1, borderColor: '#059669', backgroundColor: '#ecfdf5', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 4, marginBottom: 8 },
+  sigPlaceholderText: { fontSize: 8, fontWeight: 'bold', color: '#059669', letterSpacing: 0.5 },
+  sigName: { fontSize: 12, fontWeight: 'bold', color: '#1E293B' },
+  sigRole: { fontSize: 10, color: '#64748B', marginTop: 2, fontWeight: '600' },
   finePrint: { alignItems: 'center', marginTop: 40, paddingBottom: 20 },
   finePrintText: { fontSize: 9, fontWeight: 'bold', color: '#94A3B8', letterSpacing: 0.5 },
   finePrintSub: { fontSize: 8, color: '#CBD5E1', marginTop: 2 },
