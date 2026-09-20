@@ -71,22 +71,22 @@ export default function InfoScreen() {
     <>
       <Text style={styles.introText}>Frequently Asked Questions</Text>
       
-      <View style={styles.faqCard}>
+      <TouchableOpacity style={styles.faqCard} onPress={() => router.push('/support/chat')} activeOpacity={0.7}>
         <Text style={styles.faqQuestion}>How do I download my lab reports?</Text>
         <Text style={styles.faqAnswer}>Navigate to the 'Reports' tab on the bottom navigation. Locate your completed test and tap 'Download PDF Report' instantly.</Text>
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.faqCard}>
+      <TouchableOpacity style={styles.faqCard} onPress={() => router.push('/support/chat')} activeOpacity={0.7}>
         <Text style={styles.faqQuestion}>Is fasting required for a Complete Blood Count?</Text>
         <Text style={styles.faqAnswer}>CBC tests do not strictly require fasting, but related packages including sugar or lipid profiling often mandate 8-12 hours of fasting beforehand.</Text>
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.faqCard}>
+      <TouchableOpacity style={styles.faqCard} onPress={() => router.push('/support/chat')} activeOpacity={0.7}>
         <Text style={styles.faqQuestion}>How do I cancel or reschedule a slot?</Text>
         <Text style={styles.faqAnswer}>{"Open 'Bookings' -> select active test -> tap 'Modify Booking'. Rescheduling is free if completed 4 hours ahead of the slot."}</Text>
-      </View>
+      </TouchableOpacity>
 
-      <TouchableOpacity style={styles.supportBtn}>
+      <TouchableOpacity style={styles.supportBtn} onPress={() => router.push('/support/chat')} activeOpacity={0.8}>
         <MaterialCommunityIcons name="chat-processing-outline" size={24} color="#FFF" />
         <Text style={styles.supportBtnText}>Chat with Live Support Agent</Text>
       </TouchableOpacity>

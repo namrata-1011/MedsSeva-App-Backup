@@ -46,7 +46,7 @@ export default function ReferAndEarnScreen() {
   const appPlayStoreUrl = 'https://play.google.com/store/apps/details?id=com.medssevaglobal.app';
   const referralLink = `https://medsseva.com/refer?code=${referralCode}`;
 
-  const shareMessage = `Join Medsseva using my referral code ${referralCode} & get your First Lab Test 50% discount\nDownload app: ${appPlayStoreUrl}`;
+  const shareMessage = `Join Medsseva using my referral code ${referralCode} & earn rewards!\nDownload app: ${appPlayStoreUrl}`;
 
   const handleCopy = async () => {
     await Clipboard.setStringAsync(referralCode);
@@ -54,11 +54,7 @@ export default function ReferAndEarnScreen() {
   };
 
   const handleViewRewards = () => {
-    if (totalReferrals > 0) {
-      showToast(`You have successfully referred ${totalReferrals} friends!`);
-    } else {
-      showToast('Share your code to start earning rewards when friends sign up!');
-    }
+    router.push('/wallet');
   };
 
   const handleShare = async () => {
@@ -112,9 +108,9 @@ export default function ReferAndEarnScreen() {
 
         {/* Hero Section */}
         <LinearGradient colors={['#E6FAFA', '#F0FDFA']} style={styles.heroSection}>
-          <Text style={styles.heroTitle}>Invite Friends & Get 50% OFF!</Text>
+          <Text style={styles.heroTitle}>Invite Friends & Earn Rewards!</Text>
           <Text style={styles.heroSubtitle}>
-            Share your referral code with friends. When they enter your code during signup, they get 50% OFF on their First Lab Test!
+            Share your referral code with friends. When they enter your code during signup, you earn wallet rewards!
           </Text>
 
           <LinearGradient colors={['#FEF3C7', '#DCFCE7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.codeContainer}>
@@ -169,10 +165,10 @@ export default function ReferAndEarnScreen() {
               <Text style={styles.stepDescTxt}>Types your code on registration</Text>
             </View>
             <View style={styles.stepItem}>
-              <MaterialCommunityIcons name="test-tube" size={40} color="#006D6F" />
+              <MaterialCommunityIcons name="wallet-giftcard" size={40} color="#006D6F" />
               <Text style={styles.stepNum}>3</Text>
-              <Text style={styles.stepTitleTxt}>50% OFF</Text>
-              <Text style={styles.stepDescTxt}>They get 50% discount on 1st lab test</Text>
+              <Text style={styles.stepTitleTxt}>You Earn Reward</Text>
+              <Text style={styles.stepDescTxt}>Get wallet balance on their signup</Text>
             </View>
           </View>
         </View>

@@ -255,6 +255,17 @@ export default function ProfileScreen() {
       <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
     </TouchableOpacity>
     <View style={styles.divider} />
+    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/wallet')} activeOpacity={0.7}>
+      <View style={styles.menuIconWrap}>
+        <MaterialCommunityIcons name="wallet-outline" size={20} color={COLORS.primary} />
+      </View>
+      <View style={styles.menuTextWrap}>
+        <Text style={styles.menuLabel}>My Wallet</Text>
+        <Text style={styles.menuSubtitle}>View balance and history</Text>
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+    </TouchableOpacity>
+    <View style={styles.divider} />
     <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/profile/payment')} activeOpacity={0.7}>
       <View style={styles.menuIconWrap}>
         <MaterialCommunityIcons name="credit-card-outline" size={20} color={COLORS.primary} />

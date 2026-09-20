@@ -27,7 +27,7 @@ const ONBOARDING_DATA = [
   {
     id: 2,
     title: 'Certified Pathology Labs',
-    description: 'We partner with top NABL & CAP certified labs to ensure the highest quality standards.',
+    description: 'We partner with top certified labs to ensure the highest quality standards.',
     image: require('../assets/images/ob2.jpg'),
   },
   {
@@ -166,13 +166,12 @@ const styles = StyleSheet.create({
   },
   safeHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 10 : 20,
+    top: Platform.OS === 'ios' ? 50 : 50,
     right: 20,
     zIndex: 20,
   },
   skipBtn: {
     padding: 10,
-    marginTop: Platform.OS === 'android' ? 30 : 0,
     backgroundColor: 'rgba(255, 255, 255, 0.6)', // Make semi-opaque over background images
     borderRadius: 20,
     paddingHorizontal: 14,

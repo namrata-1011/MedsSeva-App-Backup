@@ -189,15 +189,8 @@ const [activeHeroIndex, setActiveHeroIndex] = useState(0);
     };
   }, []);
 
-  // Promo Banners (Dynamic CMS with Static Fallback) Hooks
-  const staticBanners = [
-    require('../../assets/images/banner1.png'),
-    require('../../assets/images/banner2.png'),
-    require('../../assets/images/banner3.png'),
-    require('../../assets/images/banner4.png'),
-  ];
-  const isUsingDynamicPromo = dynamicPromoBanners.length > 0;
-  const activePromoList = isUsingDynamicPromo ? dynamicPromoBanners : staticBanners;
+  // Promo Banners (Dynamic CMS)
+  const activePromoList = dynamicPromoBanners;
 
   const [activeStaticHeroIndex, setActiveStaticHeroIndex] = useState(0);
   const staticHeroFlatListRef = useRef<any>(null);
@@ -453,18 +446,8 @@ const filteredTests = activeCategory === 'all'
                 renderItem={({ item }: { item: any }) => (
                   <View style={[styles.heroSlideWrapper, { paddingHorizontal: 24 }]}>
                     <TouchableOpacity
-                      activeOpacity={0.95}
-                      onPress={() => {
-                        if (item.linkType === 'Package' && item.linkValue) {
-                          router.push(`/package/${item.linkValue}` as any);
-                        } else if (item.linkType === 'Test' && item.linkValue) {
-                          router.push(`/test/${item.linkValue}` as any);
-                        } else if (item.linkType === 'External' && item.linkValue) {
-                          Linking.openURL(item.linkValue).catch(() => {});
-                        } else {
-                          router.push('/package' as any);
-                        }
-                      }}
+                      activeOpacity={1}
+                      onPress={() => {}}
                       style={styles.heroSlide}
                     >
                       {item.imageUrl ? (
@@ -524,24 +507,12 @@ const filteredTests = activeCategory === 'all'
             renderItem={({ item }: { item: any }) => (
               <View style={[styles.heroSlideWrapper, { paddingHorizontal: 20 }]}>
                 <TouchableOpacity
-                  activeOpacity={0.95}
+                  activeOpacity={1}
                   style={styles.heroSlide}
-                  onPress={() => {
-                    if (isUsingDynamicPromo) {
-                      if (item.linkType === 'Package' && item.linkValue) {
-                        router.push(`/package/${item.linkValue}` as any);
-                      } else if (item.linkType === 'Test' && item.linkValue) {
-                        router.push(`/test/${item.linkValue}` as any);
-                      } else if (item.linkType === 'External' && item.linkValue) {
-                        Linking.openURL(item.linkValue).catch(() => {});
-                      } else {
-                        router.push('/package' as any);
-                      }
-                    }
-                  }}
+                  onPress={() => {}}
                 >
                   <Image
-                    source={isUsingDynamicPromo ? { uri: item.imageUrl } : item}
+                    source={{ uri: item.imageUrl }}
                     style={[styles.heroBannerImage, { height: 140 }]}
                     resizeMode="cover"
                   />

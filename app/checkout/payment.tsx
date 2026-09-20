@@ -36,10 +36,21 @@ const isLabVisit = booking.collectionMode === 'lab';
   // For lab visit: auto-select the only option
   const [selectedMethod, setSelectedMethod] = useState<string | null>(isLabVisit ? 'lab_walkin' : null);
   const [isProcessing, setIsProcessing] = useState(false);
-const [isRazorpayVisible, setIsRazorpayVisible] = useState(false);
+  const [isRazorpayVisible, setIsRazorpayVisible] = useState(false);
   const [razorpayOrderId, setRazorpayOrderId] = useState<string>('');
   const [razorpayKeyId, setRazorpayKeyId] = useState<string>('');
   const [razorpayAmount, setRazorpayAmount] = useState<number>(0);
+
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [useWallet, setUseWallet] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    apiService.getWallet().then(data => {
+      if (data?.balance) {
+        setWalletBalance(data.balance);
+      }
+    }).catch(console.error);
+  }, []);
 
   const processBackendBooking = async (paymentData?: any) => {
     setIsProcessing(true);
@@ -71,6 +82,7 @@ const [isRazorpayVisible, setIsRazorpayVisible] = useState(false);
           collectionMode: booking.collectionMode,
           paymentMethod: selectedMethod,
           couponCode: booking.appliedCouponCode || undefined,
+          useWallet: useWallet,
         };
         console.log('[Booking] Sending Booking Payload to backend:', JSON.stringify(payload, null, 2));
         response = await apiService.createBooking(payload);
@@ -136,6 +148,7 @@ const [isRazorpayVisible, setIsRazorpayVisible] = useState(false);
           mobile: booking.patientDetails?.mobile || undefined,
           addressId: booking.selectedAddressId ?? undefined,
           branchId: (isLabVisit ? branchId : undefined) ?? undefined,
+          useWallet: useWallet,
         });
         setRazorpayOrderId(order.razorpayOrderId);
         setRazorpayKeyId(order.keyId);
@@ -204,6 +217,31 @@ const [isRazorpayVisible, setIsRazorpayVisible] = useState(false);
               No online payment needed. Visit the lab at your scheduled time and pay at the counter. Show your Booking ID to the receptionist.
             </Text>
           </View>
+        )}
+
+        {walletBalance > 0 && (
+          <TouchableOpacity 
+            style={[styles.methodCard, useWallet && styles.methodCardSelected]}
+            onPress={() => setUseWallet(!useWallet)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.methodIconBox, { backgroundColor: '#DCFCE7' }]}>
+              <MaterialCommunityIcons name="wallet-giftcard" size={24} color="#16A34A" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.methodName, useWallet && styles.methodNameSelected]}>
+                Use Wallet Balance
+              </Text>
+              <Text style={styles.methodDesc}>Available: ₹{walletBalance}</Text>
+            </View>
+            <View style={styles.radioContainer}>
+              {useWallet ? (
+                <MaterialCommunityIcons name="check-circle" size={22} color={COLORS.primary} />
+              ) : (
+                <MaterialCommunityIcons name="checkbox-blank-circle-outline" size={22} color="#CBD5E1" />
+              )}
+            </View>
+          </TouchableOpacity>
         )}
 
         {PAYMENT_METHODS.map((method) => (

@@ -104,6 +104,7 @@ sendOtp: (mobile: string) => api.post('/auth/otp/send', { mobile }).then(res => 
   getBookings: (mobile: string) => api.get(`/bookings?mobile=${encodeURIComponent(mobile)}`).then(res => res.data),
   getBookingById: (id: string) => api.get(`/bookings?id=${id}`).then(res => res.data),
   getMe: () => api.get('/users/me').then(res => res.data),
+  getWallet: () => api.get('/users/wallet').then(res => res.data),
   addFamilyMember: (data: any) => api.post('/users/family', data).then(res => res.data),
   removeFamilyMember: (id: string) => api.delete(`/users/family/${id}`).then(res => res.data),
 getPaymentMethods: (mobile: string) => api.get(`/payment-methods?mobile=${encodeURIComponent(mobile)}`).then(res => res.data),

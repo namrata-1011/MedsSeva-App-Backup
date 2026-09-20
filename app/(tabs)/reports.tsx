@@ -178,14 +178,17 @@ useEffect(() => {
             <TouchableOpacity
               style={styles.actionButtonSecondary}
               onPress={() => {
-                if (item.report?.pdfUrl) {
-                  Linking.openURL(item.report.pdfUrl);
+                const invoiceUrl = item.booking?.payment?.invoiceUrl;
+                if (invoiceUrl) {
+                  Linking.openURL(invoiceUrl);
+                } else if (item.booking?.id) {
+                  Linking.openURL(`http://localhost:5000/api/payments/invoice/${item.booking.id}/pdf`);
                 }
               }}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="eye-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.actionButtonTextSecondary}>View Report</Text>
+              <MaterialCommunityIcons name="receipt" size={20} color={COLORS.primary} />
+              <Text style={styles.actionButtonTextSecondary}>Download Invoice</Text>
             </TouchableOpacity>
 
             {item.report?.pdfUrl ? (
@@ -232,26 +235,6 @@ useEffect(() => {
           <Text style={[styles.analyticNumber, { color: COLORS.danger }]}>{reportsList.filter((r: any) => r.abnormal).length}</Text>
           <Text style={styles.analyticLabel}>Requires Attention</Text>
         </View>
-        <View style={styles.analyticDivider} />
-        <View style={styles.analyticBox}>
-          <Text style={[styles.analyticNumber, { color: COLORS.success }]}>{reportsList.filter((r: any) => r.status === 'Processing').length}</Text>
-          <Text style={styles.analyticLabel}>Processing</Text>
-        </View>
-      </View>
-
-      <View style={styles.tabsContainer}>
-        {['all', 'abnormal', 'processing'].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
       </View>
 
 {isLoading ? (
