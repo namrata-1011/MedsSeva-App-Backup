@@ -4,9 +4,22 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../utils/tokenStorage';
 
+import Constants from 'expo-constants';
+
 const getBaseUrl = () => {
-  // Force local IP for APK testing to bypass EAS secrets pointing to production
-  return 'http://192.168.2.103:5000/api';
+  // If running in Expo Go, dynamically detect laptop's IP address
+  let hostUri = Constants.expoConfig?.hostUri;
+  if (!hostUri && Constants.manifest2?.extra?.expoGo?.debuggerHost) {
+    hostUri = Constants.manifest2.extra.expoGo.debuggerHost;
+  }
+
+  if (hostUri) {
+    const ip = hostUri.split(':')[0];
+    return `http://${ip}:5000/api`;
+  }
+
+  // Fallback for APK build (connects to live Render server automatically)
+  return 'https://medsseva-backend-cnud.onrender.com/api';
 };
 
 const api = axios.create({
