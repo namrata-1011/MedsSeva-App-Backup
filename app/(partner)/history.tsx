@@ -30,6 +30,9 @@ interface HistoryBooking {
   isRejected?: boolean;
   tests?: { name: string }[];
   packages?: { name: string }[];
+  assignedExecutiveId?: string | null;
+  assignedPartnerId?: string | null;
+  assignedExecutiveName?: string | null;
 }
 export default function PartnerHistoryScreen() {
   const router = useRouter();
@@ -121,7 +124,7 @@ const statusMap: Record<TabType, string[]> = {
         </View>
       </View>
 
-   {item.completedAt && (
+      {item.completedAt && (
         <View style={styles.completedAtRow}>
           <MaterialCommunityIcons name="clock-check-outline" size={13} color="#64748B" />
           <Text style={styles.completedAtText}>
@@ -138,6 +141,17 @@ const statusMap: Record<TabType, string[]> = {
           </Text>
         </View>
       )}
+      
+      {/* Assignment Status */}
+      {!item.isRejected && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 8, borderRadius: 8, marginTop: 4, marginBottom: 8, borderWidth: 1, borderColor: '#F1F5F9' }}>
+          <MaterialCommunityIcons name={item.assignedExecutiveName ? "account-arrow-right" : "account-check"} size={14} color={item.assignedExecutiveName ? "#3B82F6" : "#10B981"} />
+          <Text style={{ fontSize: 11, fontWeight: '600', color: '#475569', marginLeft: 6 }}>
+            {item.assignedExecutiveName ? `Assigned to: ${item.assignedExecutiveName}` : 'Accepted by self'}
+          </Text>
+        </View>
+      )}
+
 <TouchableOpacity style={styles.detailsBtn} onPress={() => router.navigate({ pathname: '/(partner)/booking-detail', params: { bookingData: JSON.stringify(item) } } as any)}>
         <Text style={styles.detailsBtnText}>Details</Text>
         <MaterialCommunityIcons name="chevron-right" size={16} color={COLORS.primary} />
