@@ -136,13 +136,14 @@ export default function PartnerRegisterScreen() {
   };
 
   // Step 1 Validation & OTP Send
-  const validateStep1 = () => {
+  const validateStep1 = async () => {
     setServerError(null);
     if (!form.name.trim()) {
       setServerError('Please enter Authorized Person / Full Name.');
       return;
     }
-    if (!form.mobile.trim() || form.mobile.trim().length !== 10) {
+    const cleanMob = form.mobile.trim().replace(/\D/g, '').slice(-10);
+    if (cleanMob.length !== 10) {
       setServerError('Please enter a valid 10-digit mobile number.');
       return;
     }
@@ -162,20 +163,52 @@ export default function PartnerRegisterScreen() {
     if (otpVerified) {
       setCurrentStep(2);
     } else {
-      setOtpStep(true);
+      try {
+        setIsLoading(true);
+        await apiService.sendOtp(cleanMob);
+        setOtpStep(true);
+        showSuccess(`Verification code sent to +91 ${cleanMob}`);
+      } catch (err: any) {
+        showError(err?.response?.data?.error || err?.message || 'Failed to send OTP via SMS');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const verifyOtpAndProceed = () => {
+  const handleResendOtp = async () => {
+    const cleanMob = form.mobile.trim().replace(/\D/g, '').slice(-10);
+    try {
+      setIsLoading(true);
+      await apiService.sendOtp(cleanMob);
+      setOtp(['', '', '', '']);
+      showSuccess(`New verification code sent to +91 ${cleanMob}`);
+    } catch (err: any) {
+      showError(err?.response?.data?.error || err?.message || 'Failed to resend OTP');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyOtpAndProceed = async () => {
     const otpVal = otp.join('');
-    if (otpVal !== '1234') {
-      showError('Invalid OTP. Use 1234 for demo verification.');
+    if (otpVal.length !== 4) {
+      showError('Please enter 4-digit OTP.');
       return;
     }
-    setOtpVerified(true);
-    setOtpStep(false);
-    showSuccess('Mobile verified successfully!');
-    setCurrentStep(2);
+    const cleanMob = form.mobile.trim().replace(/\D/g, '').slice(-10);
+    try {
+      setIsLoading(true);
+      await apiService.verifyOtp(cleanMob, otpVal);
+      setOtpVerified(true);
+      setOtpStep(false);
+      showSuccess('Mobile verified successfully!');
+      setCurrentStep(2);
+    } catch (err: any) {
+      showError(err?.response?.data?.error || err?.message || 'Invalid OTP');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Step 2 Validation (Lab Details)
@@ -780,10 +813,28 @@ export default function PartnerRegisterScreen() {
                 />
               ))}
             </View>
-            <Text style={styles.otpHint}>Use 1234 for verification</Text>
+            <Text style={styles.otpHint}>Enter the 4-digit code sent via SMS</Text>
 
-            <TouchableOpacity style={styles.submitBtn} onPress={verifyOtpAndProceed}>
-              <Text style={styles.submitBtnText}>Verify & Proceed</Text>
+            <TouchableOpacity
+              style={[styles.submitBtn, isLoading && { opacity: 0.7 }]}
+              onPress={verifyOtpAndProceed}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Verify & Proceed</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{ marginTop: 16, alignItems: 'center' }}
+              onPress={handleResendOtp}
+              disabled={isLoading}
+            >
+              <Text style={{ fontSize: 13, color: COLORS.primary, fontWeight: '600' }}>
+                Resend OTP
+              </Text>
             </TouchableOpacity>
           </View>
         </ScreenWrapper>
