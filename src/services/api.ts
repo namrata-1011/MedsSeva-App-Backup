@@ -5,19 +5,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../utils/tokenStorage';
 
 const getBaseUrl = () => {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL;
+  }
+
   // If running in Expo Go, dynamically detect laptop's IP address
   let hostUri = Constants.expoConfig?.hostUri;
   if (!hostUri && Constants.manifest2?.extra?.expoGo?.debuggerHost) {
     hostUri = Constants.manifest2.extra.expoGo.debuggerHost;
   }
 
-  if (hostUri) {
+  if (hostUri && !hostUri.includes('exp.direct')) {
     const ip = hostUri.split(':')[0];
     return `http://${ip}:5000/api`;
   }
 
-  // Fallback for APK build (connects to live Render server automatically)
-  return 'https://medsseva-backend-cnud.onrender.com/api';
+  // Fallback
+  return 'http://10.207.247.51:5000/api';
 };
 
 const api = axios.create({
