@@ -20,7 +20,7 @@ export default function ForgotPasswordScreen() {
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -29,7 +29,7 @@ export default function ForgotPasswordScreen() {
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
-const [otpError, setOtpError] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
@@ -59,7 +59,7 @@ const [otpError, setOtpError] = useState('');
       showError('Please enter a valid email address.');
       return;
     }
-setIsSending(true);
+    setIsSending(true);
     setServerError(null);
     try {
       await apiService.sendForgotPasswordOtp(email);
@@ -72,11 +72,12 @@ setIsSending(true);
   };
 
   const handleOtpChange = (value: string, index: number) => {
+    const cleanVal = value.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = cleanVal ? cleanVal.slice(-1) : '';
     setOtp(newOtp);
     setOtpError('');
-    if (value && index < 5) inputRefs.current[index + 1]?.focus();
+    if (cleanVal && index < 3) inputRefs.current[index + 1]?.focus();
   };
 
   const handleKeyPress = (e: any, index: number) => {
@@ -87,7 +88,7 @@ setIsSending(true);
 
   const handleVerifyOtp = async () => {
     const otpValue = otp.join('');
-    if (otpValue.length !== 6) return;
+    if (otpValue.length !== 4) return;
     setOtpError('');
     setIsLoading(true);
     try {
@@ -121,10 +122,10 @@ setIsSending(true);
     }
   };
 
-  const otpFilled = otp.join('').length === 6;
-  const BOX_SIZE = (width - 48 - 40 - 50) / 6;
+  const otpFilled = otp.join('').length === 4;
+  const BOX_SIZE = Math.min(64, (width - 48 - 48 - 36) / 4);
 
-return (
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#E8F0F3" />
       <ScreenWrapper
@@ -136,7 +137,7 @@ return (
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
-            if (step === 'otp') { setStep('email'); setOtp(['', '', '', '', '', '']); }
+            if (step === 'otp') { setStep('email'); setOtp(['', '', '', '']); }
             else if (step === 'reset') setStep('otp');
             else router.back();
           }}
@@ -168,7 +169,7 @@ return (
                 />
               </View>
 
-          {serverError && (
+              {serverError && (
                 <View style={styles.serverErrorBox}>
                   <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#EF4444" />
                   <Text style={styles.serverErrorText}>{serverError}</Text>
@@ -198,9 +199,9 @@ return (
               </View>
               <Text style={styles.title}>Enter Code</Text>
               <Text style={styles.subtitleOtp}>
-                Enter the 6-digit code sent to{'\n'}
+                Enter the 4-digit code sent to{'\n'}
                 <Text style={styles.maskedEmail}>{maskedEmail} </Text>
-                <Text style={styles.changeLink} onPress={() => { setStep('email'); setOtp(['', '', '', '', '', '']); }}>Change</Text>
+                <Text style={styles.changeLink} onPress={() => { setStep('email'); setOtp(['', '', '', '']); }}>Change</Text>
               </Text>
 
               <View style={styles.otpRow}>
@@ -208,7 +209,7 @@ return (
                   <TextInput
                     key={index}
                     ref={ref => { inputRefs.current[index] = ref; }}
-                    style={[styles.otpBox, { width: BOX_SIZE, height: 54 }, digit ? styles.otpBoxFilled : null, otpError ? styles.otpBoxError : null]}
+                    style={[styles.otpBox, { width: BOX_SIZE, height: 60 }, digit ? styles.otpBoxFilled : null, otpError ? styles.otpBoxError : null]}
                     maxLength={1}
                     keyboardType="number-pad"
                     value={digit}
@@ -223,7 +224,7 @@ return (
               <View style={styles.resendRow}>
                 <Text style={styles.resendText}>Didn't receive the code? </Text>
                 {canResend ? (
-                  <TouchableOpacity onPress={() => { setOtp(['', '', '', '', '', '']); handleSendOtp(); }}>
+                  <TouchableOpacity onPress={() => { setOtp(['', '', '', '']); handleSendOtp(); }}>
                     <Text style={styles.resendLink}>Resend</Text>
                   </TouchableOpacity>
                 ) : (
@@ -342,10 +343,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, height: 50, marginBottom: 16, width: '100%',
   },
   input: { flex: 1, fontSize: 14, color: '#0F172A' },
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, width: '100%' },
+  otpRow: { flexDirection: 'row', justifyContent: 'center', gap: 14, marginBottom: 16, width: '100%' },
   otpBox: {
-    borderRadius: 12, backgroundColor: '#F1F5F9', textAlign: 'center',
-    fontSize: 20, fontWeight: '700', color: '#0F172A', borderWidth: 1.5, borderColor: '#E2E8F0',
+    borderRadius: 14, backgroundColor: '#F1F5F9', textAlign: 'center',
+    fontSize: 24, fontWeight: '700', color: '#0F172A', borderWidth: 1.5, borderColor: '#E2E8F0',
   },
   otpBoxFilled: { backgroundColor: '#F0FDFA', borderColor: PRIMARY },
   otpBoxError: { borderColor: '#EF4444', backgroundColor: '#FFF5F5' },

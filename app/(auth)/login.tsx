@@ -51,8 +51,25 @@ export default function LoginScreen() {
         return;
       }
 
-      // Trigger OTP send
-      await apiService.sendOtp(data.mobile).catch(() => {});
+      // Trigger OTP send & approval check
+      try {
+        await apiService.sendOtp(data.mobile);
+      } catch (otpErr: any) {
+        const errData = otpErr.response?.data;
+        if (errData?.pendingApproval) {
+          if (errData.role === 'EXECUTIVE') {
+            router.replace('/(auth)/phlebotomist-pending');
+          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
+            router.replace('/(auth)/doctor-pending');
+          } else {
+            router.replace('/(auth)/partner-pending');
+          }
+          return;
+        }
+        setServerError(errData?.error || 'Failed to send verification code. Please try again.');
+        setIsLoading(false);
+        return;
+      }
 
       // Navigate to OTP Screen
       router.push({

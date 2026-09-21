@@ -48,9 +48,7 @@ export default function PartnerRegisterScreen() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(1); // Step 1 to 5
   const [isLoading, setIsLoading] = useState(false);
-  const [otpStep, setOtpStep] = useState(false);
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [otp, setOtp] = useState(['', '', '', '']);
+
   const [serverError, setServerError] = useState<string | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -160,56 +158,10 @@ export default function PartnerRegisterScreen() {
       return;
     }
 
-    if (otpVerified) {
-      setCurrentStep(2);
-    } else {
-      try {
-        setIsLoading(true);
-        await apiService.sendOtp(cleanMob);
-        setOtpStep(true);
-        showSuccess(`Verification code sent to +91 ${cleanMob}`);
-      } catch (err: any) {
-        showError(err?.response?.data?.error || err?.message || 'Failed to send OTP via SMS');
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    setCurrentStep(2);
   };
 
-  const handleResendOtp = async () => {
-    const cleanMob = form.mobile.trim().replace(/\D/g, '').slice(-10);
-    try {
-      setIsLoading(true);
-      await apiService.sendOtp(cleanMob);
-      setOtp(['', '', '', '']);
-      showSuccess(`New verification code sent to +91 ${cleanMob}`);
-    } catch (err: any) {
-      showError(err?.response?.data?.error || err?.message || 'Failed to resend OTP');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const verifyOtpAndProceed = async () => {
-    const otpVal = otp.join('');
-    if (otpVal.length !== 4) {
-      showError('Please enter 4-digit OTP.');
-      return;
-    }
-    const cleanMob = form.mobile.trim().replace(/\D/g, '').slice(-10);
-    try {
-      setIsLoading(true);
-      await apiService.verifyOtp(cleanMob, otpVal);
-      setOtpVerified(true);
-      setOtpStep(false);
-      showSuccess('Mobile verified successfully!');
-      setCurrentStep(2);
-    } catch (err: any) {
-      showError(err?.response?.data?.error || err?.message || 'Invalid OTP');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Step 2 Validation (Lab Details)
   const validateStep2 = () => {
@@ -784,63 +736,7 @@ export default function PartnerRegisterScreen() {
     </View>
   );
 
-  // OTP Verification Screen
-  if (otpStep) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
-        <ScreenWrapper backgroundColor="#F8FAFC" contentContainerStyle={styles.content} disableKeyboardDismiss>
-          <TouchableOpacity style={styles.backBtn} onPress={() => setOtpStep(false)}>
-            <MaterialCommunityIcons name="arrow-left" size={22} color="#334155" />
-          </TouchableOpacity>
 
-          <View style={styles.centerBlock}>
-            <View style={styles.shieldCircle}>
-              <MaterialCommunityIcons name="shield-check" size={36} color={COLORS.primary} />
-            </View>
-            <Text style={styles.otpTitle}>Verify Mobile OTP</Text>
-            <Text style={styles.otpSubtitle}>Enter the 4-digit code sent to +91 {form.mobile}</Text>
-
-            <View style={styles.otpRow}>
-              {otp.map((d, i) => (
-                <TextInput
-                  key={i}
-                  ref={ref => { otpRefs.current[i] = ref; }}
-                  style={[styles.otpBox, d ? styles.otpBoxFilled : null]}
-                  maxLength={1} keyboardType="number-pad"
-                  value={d} onChangeText={v => handleOtpChange(v, i)}
-                  autoFocus={i === 0}
-                />
-              ))}
-            </View>
-            <Text style={styles.otpHint}>Enter the 4-digit code sent via SMS</Text>
-
-            <TouchableOpacity
-              style={[styles.submitBtn, isLoading && { opacity: 0.7 }]}
-              onPress={verifyOtpAndProceed}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.submitBtnText}>Verify & Proceed</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={{ marginTop: 16, alignItems: 'center' }}
-              onPress={handleResendOtp}
-              disabled={isLoading}
-            >
-              <Text style={{ fontSize: 13, color: COLORS.primary, fontWeight: '600' }}>
-                Resend OTP
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScreenWrapper>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>

@@ -37,8 +37,18 @@ export default function PhlebotomistLoginScreen() {
         return;
       }
 
-      // 2. Trigger dummy/backend OTP send
-      await apiService.sendOtp(cleanMobile).catch(() => {});
+      // 2. Trigger backend OTP send & approval check
+      try {
+        await apiService.sendOtp(cleanMobile);
+      } catch (otpErr: any) {
+        if (otpErr.response?.data?.pendingApproval) {
+          router.replace('/(auth)/phlebotomist-pending');
+          return;
+        }
+        setServerError(otpErr.response?.data?.error || 'Failed to send verification code. Please try again.');
+        setIsLoading(false);
+        return;
+      }
 
       // 3. Navigate to OTP screen with expectedRole
       router.push({

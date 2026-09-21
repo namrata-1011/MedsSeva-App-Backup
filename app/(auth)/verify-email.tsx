@@ -23,12 +23,16 @@ export default function VerifyEmailScreen() {
   const params = useLocalSearchParams();
 
   const email = (params.email as string) || '';
+  const mobile = (params.mobile as string) || '';
   const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, (_, a, b, c) => a + '*'.repeat(Math.max(0, b.length)) + c);
+  const maskedMobile = mobile.length === 10
+    ? `+91 ••••••${mobile.slice(-4)}`
+    : mobile;
 
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
-const [otpError, setOtpError] = useState('');
+  const [otpError, setOtpError] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(30);
   const [canResend, setCanResend] = useState(false);
@@ -57,11 +61,12 @@ const [otpError, setOtpError] = useState('');
   };
 
   const handleOtpChange = (value: string, index: number) => {
+    const cleanVal = value.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = cleanVal ? cleanVal.slice(-1) : '';
     setOtp(newOtp);
     setOtpError('');
-    if (value && index < 5) {
+    if (cleanVal && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -75,9 +80,9 @@ const [otpError, setOtpError] = useState('');
   const handleResend = async () => {
     if (!canResend) return;
     setIsResending(true);
-    setOtp(['', '', '', '', '', '']);
+    setOtp(['', '', '', '']);
     setOtpError('');
- try {
+    try {
       await apiService.sendEmailOtp(email);
       startCountdown();
       setServerError(null);
@@ -91,7 +96,7 @@ const [otpError, setOtpError] = useState('');
 
   const handleVerify = async () => {
     const otpValue = otp.join('');
-    if (otpValue.length !== 6) return;
+    if (otpValue.length !== 4) return;
     setOtpError('');
     setIsLoading(true);
     try {
@@ -119,9 +124,9 @@ const [otpError, setOtpError] = useState('');
     }
   };
 
-  const otpFilled = otp.join('').length === 6;
+  const otpFilled = otp.join('').length === 4;
 
-return (
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#E8F0F3" />
       <ScreenWrapper
@@ -136,8 +141,9 @@ return (
 
           <Text style={styles.title}>Verify Your Email</Text>
           <Text style={styles.subtitle}>
-            We sent a 6-digit verification code to{'\n'}
+            We sent a 4-digit verification code to{'\n'}
             <Text style={styles.emailText}>{maskedEmail}</Text>
+            {maskedMobile ? <Text style={styles.emailText}>{` & ${maskedMobile}`}</Text> : null}
           </Text>
 
           <View style={styles.otpRow}>
@@ -210,7 +216,7 @@ return (
   );
 }
 
-const BOX_SIZE = (width - 48 - 40 - 50) / 6;
+const BOX_SIZE = Math.min(64, (width - 48 - 48 - 36) / 4);
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8F0F3' },
@@ -233,10 +239,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '900', color: '#0F172A', marginBottom: 8, textAlign: 'center' },
   subtitle: { fontSize: 14, color: '#64748B', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
   emailText: { fontWeight: '700', color: '#0F172A' },
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 16 },
+  otpRow: { flexDirection: 'row', justifyContent: 'center', gap: 14, width: '100%', marginBottom: 20 },
   otpBox: {
-    width: BOX_SIZE, height: 54, borderRadius: 12,
-    backgroundColor: '#F1F5F9', textAlign: 'center', fontSize: 20,
+    width: BOX_SIZE, height: 60, borderRadius: 14,
+    backgroundColor: '#F1F5F9', textAlign: 'center', fontSize: 24,
     fontWeight: '700', color: '#0F172A', borderWidth: 1.5, borderColor: '#E2E8F0',
   },
   otpBoxFilled: { backgroundColor: '#F0FDFA', borderColor: PRIMARY },

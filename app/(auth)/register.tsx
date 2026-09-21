@@ -99,7 +99,7 @@ export default function RegisterScreen() {
       if (response.requiresEmailVerification) {
         router.replace({
           pathname: '/(auth)/verify-email',
-          params: { email: response.email },
+          params: { email: response.email, mobile: data.mobile },
         });
         return;
       }
@@ -137,7 +137,7 @@ export default function RegisterScreen() {
           if (loginErrData?.requiresEmailVerification) {
             router.replace({
               pathname: '/(auth)/verify-email',
-              params: { email: loginErrData.email || data.email },
+              params: { email: loginErrData.email || data.email, mobile: data.mobile },
             });
             return;
           }
@@ -151,7 +151,7 @@ export default function RegisterScreen() {
    } else if (error.response?.data?.requiresEmailVerification) {
         router.replace({
           pathname: '/(auth)/verify-email',
-          params: { email: data.email },
+          params: { email: data.email, mobile: data.mobile },
         });
   } else {
         setServerError(errorMsg || 'Failed to register. Please try again.');

@@ -74,7 +74,24 @@ export default function OTPScreen() {
         setIsSending(false);
         return;
       }
-      await apiService.sendOtp(mobileNumber).catch(() => {});
+      try {
+        await apiService.sendOtp(mobileNumber);
+      } catch (otpErr: any) {
+        const errData = otpErr.response?.data;
+        if (errData?.pendingApproval) {
+          if (errData.role === 'EXECUTIVE') {
+            router.replace('/(auth)/phlebotomist-pending');
+          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
+            router.replace('/(auth)/doctor-pending');
+          } else {
+            router.replace('/(auth)/partner-pending');
+          }
+          return;
+        }
+        setServerError(errData?.error || 'Failed to send verification code. Please try again.');
+        setIsSending(false);
+        return;
+      }
       setStep('otp');
       setOtp(['', '', '', '']);
     } catch {
@@ -86,12 +103,40 @@ export default function OTPScreen() {
 
   const handleOtpChange = (value: string, index: number) => {
     const cleanVal = value.replace(/[^0-9]/g, '');
+
+    // Handle SMS autofill or pasted 4-digit OTP
+    if (cleanVal.length > 1) {
+      const digits = cleanVal.slice(0, 4).split('');
+      const newOtp = ['', '', '', ''];
+      digits.forEach((d, i) => { newOtp[i] = d; });
+      setOtp(newOtp);
+      if (otpError) setOtpError('');
+
+      if (digits.length === 4) {
+        inputRefs.current[3]?.focus();
+        setTimeout(() => {
+          verifyOtp(digits.join(''));
+        }, 150);
+      } else {
+        inputRefs.current[Math.min(digits.length, 3)]?.focus();
+      }
+      return;
+    }
+
     const newOtp = [...otp];
     newOtp[index] = cleanVal ? cleanVal.slice(-1) : '';
     setOtp(newOtp);
     if (otpError) setOtpError('');
+
     if (cleanVal && index < 3) {
       inputRefs.current[index + 1]?.focus();
+    } else if (cleanVal && index === 3) {
+      const fullCode = newOtp.join('');
+      if (fullCode.length === 4) {
+        setTimeout(() => {
+          verifyOtp(fullCode);
+        }, 150);
+      }
     }
   };
 
@@ -108,12 +153,10 @@ export default function OTPScreen() {
     await handleSendOtp();
   };
 
-  const verifyOtp = async () => {
-    const otpValue = otp.join('');
+  const verifyOtp = async (codeOverride?: string) => {
+    const otpValue = typeof codeOverride === 'string' ? codeOverride : otp.join('');
     if (otpValue.length !== 4) return;
     setOtpError('');
-
-    // Dummy OTP enforced by backend if configured, passing value through.
 
     setIsLoading(true);
     try {
@@ -309,8 +352,10 @@ export default function OTPScreen() {
                     key={index}
                     ref={(ref) => { inputRefs.current[index] = ref; }}
                     style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
-                    maxLength={1}
+                    maxLength={index === 0 ? 4 : 1}
                     keyboardType="number-pad"
+                    textContentType="oneTimeCode"
+                    autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                     value={digit}
                     onChangeText={(val) => handleOtpChange(val, index)}
                     onKeyPress={(e) => handleKeyPress(e, index)}
