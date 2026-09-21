@@ -1,31 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, Alert, ActivityIndicator, StatusBar
+  ScrollView, Alert, ActivityIndicator, StatusBar, TextInput
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
-import { useRouter } from 'expo-router';
-import { RootState } from '../../src/store';
-import { logout } from '../../src/store/slices/authSlice';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { RootState, AppDispatch } from '../../src/store';
+import { logout, updateProfile, updateProfileAndPersist } from '../../src/store/slices/authSlice';
 import { tokenStorage } from '../../src/utils/tokenStorage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SHADOWS } from '../../src/theme/theme';
+import { SHADOWS, COLORS } from '../../src/theme/theme';
 import { showSuccess } from '../../src/store/toastStore';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { Modal, Pressable } from 'react-native';
 import { apiService } from '../../src/services/api';
-import { updateProfileAndPersist } from '../../src/store/slices/authSlice';
-import { useRef } from 'react';
+
 
 export default function PhlebotomistProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((s: RootState) => s.auth.user as any);
   const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
     user?.isEmployee === true ||
@@ -39,7 +38,28 @@ export default function PhlebotomistProfileScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutFreq, setPayoutFreq] = useState('WEEKLY');
+  const [commissionRate, setCommissionRate] = useState('30.0');
+  const [showCommissionModal, setShowCommissionModal] = useState(false);
+  const [tempCommission, setTempCommission] = useState('30.0');
   const uploadLockRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      apiService.getMe().then((res: any) => {
+        if (res?.user) {
+          dispatch(updateProfile(res.user));
+        }
+      }).catch(() => {});
+      if (isFreelancer) {
+        apiService.getPartnerEarnings().then((res: any) => {
+          if (res?.payoutFrequency) setPayoutFreq(res.payoutFrequency);
+          if (res?.commissionRate) setCommissionRate(res.commissionRate.toString());
+        }).catch(() => {});
+      }
+    }, [dispatch, isFreelancer])
+  );
 
   const handleAvatarPress = async () => {
     if (uploadLockRef.current || isUploadingAvatar) return;
@@ -209,22 +229,27 @@ export default function PhlebotomistProfileScreen() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Partner Terms & Payout</Text>
 
-            <View style={styles.infoRow}>
+            <TouchableOpacity style={styles.infoRow} onPress={() => { setTempCommission(commissionRate); setShowCommissionModal(true); }}>
               <MaterialCommunityIcons name="percent" size={18} color="#059669" />
               <Text style={styles.infoLabel}>Commission Rate</Text>
-              <Text style={[styles.infoValue, { color: '#059669', fontWeight: '900' }]}>30.0% / Test</Text>
-            </View>
+              <Text style={[styles.infoValue, { color: '#059669', fontWeight: '900' }]}>{commissionRate}% / Test</Text>
+              <MaterialCommunityIcons name="pencil-outline" size={16} color="#059669" style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
 
-            <View style={styles.infoRow}>
-              <MaterialCommunityIcons name="calendar-sync" size={18} color="#006D6F" />
+            <TouchableOpacity style={styles.infoRow} onPress={() => setShowPayoutModal(true)}>
+              <MaterialCommunityIcons name="calendar-sync" size={18} color="#64748B" />
               <Text style={styles.infoLabel}>Payout Frequency</Text>
-              <Text style={styles.infoValue}>Weekly Transfer</Text>
-            </View>
+              <Text style={styles.infoValue}>
+                {payoutFreq === 'DAILY' ? 'Daily Transfer' : payoutFreq === 'WEEKLY' ? 'Weekly Transfer' : 'Monthly Transfer'}
+              </Text>
+            </TouchableOpacity>
 
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
               <Text style={styles.infoLabel}>Assigned Branch</Text>
-              <Text style={styles.infoValue}>{user?.partner?.labName || 'Central Processing Lab'}</Text>
+              <Text style={styles.infoValue}>
+                {user?.branchName || 'Not Assigned'}
+              </Text>
             </View>
           </View>
         ) : (
@@ -240,7 +265,9 @@ export default function PhlebotomistProfileScreen() {
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
               <Text style={styles.infoLabel}>Assigned Branch</Text>
-              <Text style={styles.infoValue}>{user?.branchName || 'Assigned Branch'}</Text>
+              <Text style={styles.infoValue}>
+                {user?.branchName && user.branchName !== user.name ? user.branchName : 'Not Assigned'}
+              </Text>
             </View>
           </View>
         )}
@@ -260,7 +287,7 @@ export default function PhlebotomistProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push('/legal/privacy-policy' as any)}
+            onPress={() => router.push('/legal/LegalWebView?type=privacy' as any)}
           >
             <MaterialCommunityIcons name="shield-check-outline" size={20} color="#006D6F" />
             <Text style={styles.menuItemText}>Privacy Policy & Terms</Text>
@@ -286,26 +313,112 @@ export default function PhlebotomistProfileScreen() {
       </ScrollView>
 
       <Modal transparent visible={showPhotoOptions} animationType="slide" onRequestClose={() => setShowPhotoOptions(false)}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalDismissArea} onPress={() => setShowPhotoOptions(false)} />
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
+        <View style={styles.modalOverlay}>
+          <View style={styles.photoOptionsCard}>
+            <TouchableOpacity 
+              style={styles.modalCloseBtn}
+              onPress={() => setShowPhotoOptions(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+            </TouchableOpacity>
             <Text style={styles.modalTitle}>Update Profile Photo</Text>
             
             <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('camera')}>
-              <View style={[styles.photoOptionIcon, { backgroundColor: '#EEF2FF' }]}>
-                <MaterialCommunityIcons name="camera" size={24} color="#4F46E5" />
+              <View style={[styles.photoOptionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <MaterialCommunityIcons name="camera" size={24} color={COLORS.primary} />
               </View>
               <Text style={styles.photoOptionText}>Take Photo</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('gallery')}>
-              <View style={[styles.photoOptionIcon, { backgroundColor: '#F0FDFA' }]}>
-                <MaterialCommunityIcons name="image-multiple" size={24} color="#0D9488" />
+              <View style={[styles.photoOptionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <MaterialCommunityIcons name="image-multiple" size={24} color={COLORS.primary} />
               </View>
               <Text style={styles.photoOptionText}>Choose from Gallery</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+        </View>
+    </Modal>
+
+      <Modal visible={showPayoutModal} transparent animationType="fade" onRequestClose={() => setShowPayoutModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.photoOptionsCard}>
+            <TouchableOpacity 
+              style={styles.modalCloseBtn}
+              onPress={() => setShowPayoutModal(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Select Payout Frequency</Text>
+            {['DAILY', 'WEEKLY', 'MONTHLY'].map((option) => (
+              <TouchableOpacity 
+                key={option} 
+                style={[styles.photoOptionBtn, payoutFreq === option && { backgroundColor: '#F0FDF4' }]} 
+                onPress={() => {
+                  setPayoutFreq(option);
+                  setShowPayoutModal(false);
+                  apiService.updatePayoutFrequency(option).then(() => {
+                    Toast.show({ type: 'success', text1: 'Payout frequency updated' });
+                  }).catch(() => {
+                    Toast.show({ type: 'error', text1: 'Failed to update frequency' });
+                  });
+                }}
+              >
+                <View style={[styles.photoOptionIcon, { backgroundColor: payoutFreq === option ? '#D1FAE5' : '#F1F5F9' }]}>
+                  <MaterialCommunityIcons name={payoutFreq === option ? "check-circle" : "circle-outline"} size={24} color={payoutFreq === option ? "#10B981" : "#94A3B8"} />
+                </View>
+                <Text style={[styles.photoOptionText, payoutFreq === option && { color: '#10B981', fontWeight: '700' }]}>
+                  {option === 'DAILY' ? 'Daily Transfer' : option === 'WEEKLY' ? 'Weekly Transfer' : 'Monthly Transfer'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showCommissionModal} transparent animationType="fade" onRequestClose={() => setShowCommissionModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.photoOptionsCard}>
+            <TouchableOpacity 
+              style={styles.modalCloseBtn}
+              onPress={() => setShowCommissionModal(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Set Commission Rate</Text>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 20 }}>
+              <MaterialCommunityIcons name="percent" size={24} color="#64748B" style={{ marginRight: 10 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 18, fontWeight: '700', color: '#0F172A' }}
+                value={tempCommission}
+                onChangeText={setTempCommission}
+                keyboardType="numeric"
+                maxLength={5}
+                placeholder="0.0"
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={{ backgroundColor: '#006D6F', paddingVertical: 14, borderRadius: 12, alignItems: 'center' }}
+              onPress={() => {
+                const num = parseFloat(tempCommission);
+                if (isNaN(num) || num < 0 || num > 100) {
+                  Toast.show({ type: 'error', text1: 'Enter a valid rate between 0-100' });
+                  return;
+                }
+                setCommissionRate(tempCommission);
+                setShowCommissionModal(false);
+                apiService.updateCommissionRate(tempCommission).then(() => {
+                  Toast.show({ type: 'success', text1: 'Commission rate updated' });
+                }).catch(() => {
+                  Toast.show({ type: 'error', text1: 'Failed to update commission' });
+                });
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>Save Rate</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -475,19 +588,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#E11D48',
   },
-  modalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingHorizontal: 20 
   },
-  modalDismissArea: { flex: 1 },
-  modalContent: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40, ...SHADOWS.sm,
+  photoOptionsCard: { 
+    width: '100%', 
+    backgroundColor: '#fff', 
+    borderRadius: 24, 
+    padding: 24, 
+    ...SHADOWS.md 
   },
-  modalHandle: {
-    width: 40, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0',
-    alignSelf: 'center', marginBottom: 16,
+  modalCloseBtn: { 
+    position: 'absolute', 
+    top: 16, 
+    right: 16, 
+    padding: 4, 
+    zIndex: 1 
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
   photoOptionBtn: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',

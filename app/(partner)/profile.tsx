@@ -22,7 +22,7 @@ import { RootState, AppDispatch } from '../../src/store';
 import { apiService } from '../../src/services/api';
 import { performLogout } from '../../src/utils/logout';
 import { updateProfileAndPersist } from '../../src/store/slices/authSlice';
-import { COLORS, SHADOWS } from '../../src/theme/theme';
+import { SHADOWS, COLORS } from '../../src/theme/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 
@@ -150,7 +150,7 @@ export default function PartnerProfileScreen() {
 {
       icon: 'cog-outline',
       label: 'Settings',
-      subtitle: 'Change password and preferences',
+      subtitle: 'App preferences and security',
       onPress: () => router.push('/(partner)/(profile-stack)/settings' as any),
     },
     {
@@ -309,23 +309,27 @@ export default function PartnerProfileScreen() {
       />
 
       <Modal transparent visible={showPhotoOptions} animationType="slide" onRequestClose={() => setShowPhotoOptions(false)}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalDismissArea} onPress={() => setShowPhotoOptions(false)} />
-          <View style={styles.modalContent}>
-            <View style={styles.modalHandle} />
+        <View style={styles.modalOverlay}>
+          <View style={styles.photoOptionsCard}>
+            <TouchableOpacity 
+              style={styles.modalCloseBtn}
+              onPress={() => setShowPhotoOptions(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+            </TouchableOpacity>
             <Text style={styles.modalTitle}>Update Profile Photo</Text>
             
             <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('camera')}>
-              <View style={[styles.photoOptionIcon, { backgroundColor: '#EEF2FF' }]}>
-                <MaterialCommunityIcons name="camera" size={24} color="#4F46E5" />
+              <View style={[styles.photoOptionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <MaterialCommunityIcons name="camera" size={24} color={COLORS.primary} />
               </View>
               <Text style={styles.photoOptionText}>Take Photo</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('gallery')}>
-              <View style={[styles.photoOptionIcon, { backgroundColor: '#F0FDFA' }]}>
-                <MaterialCommunityIcons name="image-multiple" size={24} color="#0D9488" />
+              <View style={[styles.photoOptionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <MaterialCommunityIcons name="image-multiple" size={24} color={COLORS.primary} />
               </View>
               <Text style={styles.photoOptionText}>Choose from Gallery</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
@@ -400,20 +404,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 18, padding: 16, flexDirection: 'row', alignItems: 'center',
     borderWidth: 1, borderColor: '#FEE2E2', marginBottom: 20, ...SHADOWS.soft,
   },
+  logoutBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#E11D48',
+  },
   versionText: { fontSize: 11, color: '#CBD5E1', textAlign: 'center' },
-  modalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingHorizontal: 20 
   },
-  modalDismissArea: { flex: 1 },
-  modalContent: {
-    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 40, ...SHADOWS.soft,
+  photoOptionsCard: { 
+    width: '100%', 
+    backgroundColor: '#fff', 
+    borderRadius: 24, 
+    padding: 24, 
+    ...SHADOWS.md 
   },
-  modalHandle: {
-    width: 40, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0',
-    alignSelf: 'center', marginBottom: 16,
+  modalCloseBtn: { 
+    position: 'absolute', 
+    top: 16, 
+    right: 16, 
+    padding: 4, 
+    zIndex: 1 
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
   photoOptionBtn: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#F1F5F9',

@@ -8,7 +8,8 @@ import {
   Modal, 
   Platform, 
   ScrollView,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { useRouter } from 'expo-router';
@@ -173,7 +174,10 @@ const handleDeleteMember = (id: string, memberName: string) => {
         transparent={true}
         onRequestClose={() => setIsModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add New Family Member</Text>
@@ -244,7 +248,7 @@ const handleDeleteMember = (id: string, memberName: string) => {
               </TouchableOpacity>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

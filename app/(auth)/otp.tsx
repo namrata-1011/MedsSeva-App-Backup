@@ -12,6 +12,7 @@ import { tokenStorage } from '../../src/utils/tokenStorage';
 import { COLORS } from '../../src/theme/theme';
 import { loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
+import auth from '@react-native-firebase/auth';
 
 const { width } = Dimensions.get('window');
 const PRIMARY = COLORS.primary;
@@ -19,11 +20,12 @@ const PRIMARY = COLORS.primary;
 export default function OTPScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { mobile: paramMobile, expectedRole } = useLocalSearchParams<{ mobile?: string; expectedRole?: string }>();
+  const { mobile: paramMobile, expectedRole, verificationId: paramVerificationId } = useLocalSearchParams<{ mobile?: string; expectedRole?: string; verificationId?: string }>();
 
   const [step, setStep] = useState<'mobile' | 'otp'>(paramMobile ? 'otp' : 'mobile');
   const [mobileNumber, setMobileNumber] = useState(paramMobile || '');
-  const [otp, setOtp] = useState(['', '', '', '']);
+  const [verificationId, setVerificationId] = useState(paramVerificationId || '');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -31,7 +33,7 @@ export default function OTPScreen() {
   const [otpError, setOtpError] = useState('');
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const inputRefs = useRef<Array<any>>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -75,25 +77,16 @@ export default function OTPScreen() {
         return;
       }
       try {
-        await apiService.sendOtp(mobileNumber);
-      } catch (otpErr: any) {
-        const errData = otpErr.response?.data;
-        if (errData?.pendingApproval) {
-          if (errData.role === 'EXECUTIVE') {
-            router.replace('/(auth)/phlebotomist-pending');
-          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
-            router.replace('/(auth)/doctor-pending');
-          } else {
-            router.replace('/(auth)/partner-pending');
-          }
-          return;
-        }
-        setServerError(errData?.error || 'Failed to send verification code. Please try again.');
+        const confirmation = await auth().signInWithPhoneNumber(`+91${mobileNumber}`);
+        setVerificationId(confirmation.verificationId || '');
+      } catch (firebaseErr: any) {
+        console.error('Firebase Auth Error:', firebaseErr);
+        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
         setIsSending(false);
         return;
       }
       setStep('otp');
-      setOtp(['', '', '', '']);
+      setOtp(['', '', '', '', '', '']);
     } catch {
       setServerError('Failed to verify mobile number. Please try again.');
     } finally {
@@ -104,21 +97,21 @@ export default function OTPScreen() {
   const handleOtpChange = (value: string, index: number) => {
     const cleanVal = value.replace(/[^0-9]/g, '');
 
-    // Handle SMS autofill or pasted 4-digit OTP
+    // Handle SMS autofill or pasted 6-digit OTP
     if (cleanVal.length > 1) {
-      const digits = cleanVal.slice(0, 4).split('');
-      const newOtp = ['', '', '', ''];
+      const digits = cleanVal.slice(0, 6).split('');
+      const newOtp = ['', '', '', '', '', ''];
       digits.forEach((d, i) => { newOtp[i] = d; });
       setOtp(newOtp);
       if (otpError) setOtpError('');
 
-      if (digits.length === 4) {
-        inputRefs.current[3]?.focus();
+      if (digits.length === 6) {
+        inputRefs.current[5]?.focus();
         setTimeout(() => {
           verifyOtp(digits.join(''));
         }, 150);
       } else {
-        inputRefs.current[Math.min(digits.length, 3)]?.focus();
+        inputRefs.current[Math.min(digits.length, 5)]?.focus();
       }
       return;
     }
@@ -128,11 +121,11 @@ export default function OTPScreen() {
     setOtp(newOtp);
     if (otpError) setOtpError('');
 
-    if (cleanVal && index < 3) {
+    if (cleanVal && index < 5) {
       inputRefs.current[index + 1]?.focus();
-    } else if (cleanVal && index === 3) {
+    } else if (cleanVal && index === 5) {
       const fullCode = newOtp.join('');
-      if (fullCode.length === 4) {
+      if (fullCode.length === 6) {
         setTimeout(() => {
           verifyOtp(fullCode);
         }, 150);
@@ -148,19 +141,32 @@ export default function OTPScreen() {
 
   const handleResend = async () => {
     if (!canResend) return;
-    setOtp(['', '', '', '']);
+    setOtp(['', '', '', '', '', '']);
     setOtpError('');
     await handleSendOtp();
   };
 
   const verifyOtp = async (codeOverride?: string) => {
     const otpValue = typeof codeOverride === 'string' ? codeOverride : otp.join('');
-    if (otpValue.length !== 4) return;
+    if (otpValue.length !== 6) return;
     setOtpError('');
 
     setIsLoading(true);
     try {
+      if (!verificationId) throw new Error("No verification ID. Please request OTP again.");
+      const credential = auth.PhoneAuthProvider.credential(verificationId, otpValue);
+      const userCredential = await auth().signInWithCredential(credential);
+      const firebaseIdToken = await userCredential.user.getIdToken();
+      console.log('Firebase ID Token:', firebaseIdToken);
+
+      // Temporarily blocking backend login logic because backend does not support Firebase Token Verification yet.
+      setOtpError('Firebase Authentication Successful! (Backend login bypassed because backend needs update to verify Firebase tokens)');
+      
+      /*
       const loginResult = await apiService.loginWithOtp(mobileNumber, otpValue);
+      */
+      // Un-comment below when backend is updated
+      /*
       const userObj = {
         id: loginResult.user.id,
         name: loginResult.user.name,
@@ -223,26 +229,10 @@ export default function OTPScreen() {
       } else {
         router.replace('/(tabs)' as any);
       }
+      */
     } catch (error: any) {
-      const err = error.response?.data;
-      if (err?.pendingApproval) {
-        if (err.role === 'EXECUTIVE') {
-          router.replace('/(auth)/phlebotomist-pending');
-        } else if (err.role === 'PATHOLOGIST' || err.role === 'DOCTOR') {
-          router.replace('/(auth)/doctor-pending');
-        } else {
-          router.replace('/(auth)/partner-pending');
-        }
-        return;
-      }
-      if (error.response?.status === 404) {
-        router.push({
-          pathname: '/(auth)/register',
-          params: { mobile: mobileNumber, fromOtp: '1' }
-        });
-        return;
-      }
-      const msg = err?.error || 'Authentication failed. Please try again.';
+      console.error('Firebase Verify Error:', error);
+      const msg = error.message || error.response?.data?.error || 'Authentication failed. Please try again.';
       setOtpError(msg);
     } finally {
       setIsLoading(false);
@@ -261,8 +251,16 @@ export default function OTPScreen() {
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => {
-              if (step === 'otp') { setStep('mobile'); setOtp(['', '', '', '']); }
-              else { router.back(); }
+              if (step === 'otp') {
+                if (paramMobile) {
+                  router.back();
+                } else {
+                  setStep('mobile');
+                  setOtp(['', '', '', '', '', '']);
+                }
+              } else {
+                router.back();
+              }
             }}
             activeOpacity={0.7}
           >
@@ -286,7 +284,7 @@ export default function OTPScreen() {
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={mobileNumber}
-                  onChangeText={(text) => setMobileNumber(text.replace(/[^0-9]/g, ''))}
+                  onChangeText={(text: string) => setMobileNumber(text.replace(/[^0-9]/g, ''))}
                 />
                 {mobileNumber.length === 10 && (
                   <MaterialCommunityIcons name="check-circle" size={20} color="#10B981" />
@@ -336,7 +334,7 @@ export default function OTPScreen() {
                       router.back();
                     } else {
                       setStep('mobile');
-                      setOtp(['', '', '', '']);
+                      setOtp(['', '', '', '', '', '']);
                     }
                   }}
                 >
@@ -350,15 +348,15 @@ export default function OTPScreen() {
                 {otp.map((digit, index) => (
                   <TextInput
                     key={index}
-                    ref={(ref) => { inputRefs.current[index] = ref; }}
+                    ref={(ref: any) => { inputRefs.current[index] = ref; }}
                     style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
-                    maxLength={index === 0 ? 4 : 1}
+                    maxLength={index === 0 ? 6 : 1}
                     keyboardType="number-pad"
                     textContentType="oneTimeCode"
                     autoComplete={Platform.OS === 'android' ? 'sms-otp' : 'one-time-code'}
                     value={digit}
-                    onChangeText={(val) => handleOtpChange(val, index)}
-                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    onChangeText={(val: string) => handleOtpChange(val, index)}
+                    onKeyPress={(e: any) => handleKeyPress(e, index)}
                   />
                 ))}
               </View>
@@ -377,9 +375,9 @@ export default function OTPScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.primaryBtn, (isLoading || otp.join('').length !== 4) && styles.btnDisabled]}
-                onPress={verifyOtp}
-                disabled={isLoading || otp.join('').length !== 4}
+                style={[styles.primaryBtn, (isLoading || otp.join('').length !== 6) && styles.btnDisabled]}
+                onPress={() => verifyOtp()}
+                disabled={isLoading || otp.join('').length !== 6}
                 activeOpacity={0.85}
               >
                 {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify & Login</Text>}
@@ -429,9 +427,9 @@ mobileInputWrap: {
   countryCode: { borderRightWidth: 1.5, borderColor: '#E2E8F0', paddingRight: 12, marginRight: 12 },
   countryCodeText: { fontSize: 15, fontWeight: '700', color: '#475569' },
   mobileInput: { flex: 1, fontSize: 15, color: '#0F172A', fontWeight: '600', letterSpacing: 1 },
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4 },
+  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4, gap: 8 },
   otpBox: {
-    width: (width - 40 - 48 - 24) / 4, height: 60, borderRadius: 14,
+    flex: 1, height: 60, borderRadius: 14,
     backgroundColor: '#F1F5F9', textAlign: 'center', fontSize: 24,
     fontWeight: '700', color: '#0F172A', elevation: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4,

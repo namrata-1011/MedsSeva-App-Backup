@@ -1,166 +1,173 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, StatusBar,
+  View, Text, StyleSheet, TouchableOpacity, Switch,
+  StatusBar, Alert
 } from 'react-native';
 import ScreenWrapper from '../../../src/components/ScreenWrapper';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 
-import { apiService } from '../../../src/services/api';
 import { COLORS, SHADOWS } from '../../../src/theme/theme';
-
-function getStrength(pw: string): { score: number; label: string; color: string } {
-  if (pw.length === 0) return { score: 0, label: '', color: '#E2E8F0' };
-  let score = 0;
-  if (pw.length >= 8) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/[0-9]/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  const map = [
-    { score: 1, label: 'Weak', color: '#EF4444' },
-    { score: 2, label: 'Fair', color: '#F59E0B' },
-    { score: 3, label: 'Good', color: '#3B82F6' },
-    { score: 4, label: 'Strong', color: '#10B981' },
-  ];
-  return map[score - 1] || { score: 0, label: '', color: '#E2E8F0' };
-}
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  
+  // Local state for UI functionality
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [emailAlerts, setEmailAlerts] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [biometricAuth, setBiometricAuth] = useState(false);
 
-  const strength = getStrength(newPassword);
-
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      Toast.show({ type: 'error', text1: 'All fields are required' });
-      return;
-    }
-    if (newPassword.length < 8) {
-      Toast.show({ type: 'error', text1: 'New password must be at least 8 characters' });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      Toast.show({ type: 'error', text1: 'Passwords do not match' });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await (apiService as any).changePassword(currentPassword, newPassword);
-      Toast.show({ type: 'success', text1: 'Password changed successfully' });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (e: any) {
-      Toast.show({ type: 'error', text1: e?.response?.data?.error || 'Failed to change password' });
-    } finally {
-      setIsSaving(false);
-    }
+  const handleToggle = (setter: React.Dispatch<React.SetStateAction<boolean>>, name: string) => (val: boolean) => {
+    setter(val);
+    Toast.show({
+      type: 'success',
+      text1: `${name} ${val ? 'Enabled' : 'Disabled'}`,
+      position: 'bottom',
+    });
   };
 
-const saveButton = (
-    <TouchableOpacity
-      style={[styles.saveBtn, isSaving && styles.saveBtnDisabled]}
-      onPress={handleChangePassword}
-      disabled={isSaving}
-      activeOpacity={0.85}
-    >
-      {isSaving
-        ? <ActivityIndicator color="#fff" size="small" />
-        : <Text style={styles.saveBtnText}>Update Password</Text>
-      }
-    </TouchableOpacity>
-  );
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: () => console.log('Account deletion requested') 
+        }
+      ]
+    );
+  };
+
+  const isDark = darkMode;
+  const currentColors = {
+    bg: isDark ? '#0F172A' : '#F8FAFC',
+    card: isDark ? '#1E293B' : '#fff',
+    text: isDark ? '#F1F5F9' : '#0F172A',
+    subText: isDark ? '#94A3B8' : '#64748B',
+    border: isDark ? '#334155' : '#E2E8F0',
+    iconBg: isDark ? '#334155' : '#F0FDFA',
+    divider: isDark ? '#334155' : '#F1F5F9',
+  };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <ScreenWrapper bottomButton={saveButton} contentContainerStyle={styles.content}>
-        <View style={styles.section}>
+    <View style={[styles.container, { backgroundColor: currentColors.bg }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={currentColors.bg} />
+      <ScreenWrapper contentContainerStyle={[styles.content, { backgroundColor: currentColors.bg }]}>
+        
+        {/* Notifications Section */}
+        <View style={[styles.section, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
           <View style={styles.sectionTitleRow}>
-            <View style={styles.sectionIcon}>
-              <MaterialCommunityIcons name="lock-outline" size={18} color={COLORS.primary} />
+            <View style={[styles.sectionIcon, { backgroundColor: currentColors.iconBg }]}>
+              <MaterialCommunityIcons name="bell-ring-outline" size={18} color={COLORS.primary} />
             </View>
-            <Text style={styles.sectionTitle}>Change Password</Text>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Notification Preferences</Text>
+          </View>
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: currentColors.text }]}>Push & SMS Alerts</Text>
+              <Text style={[styles.settingDesc, { color: currentColors.subText }]}>Receive alerts for new bookings</Text>
+            </View>
+            <Switch
+              value={pushNotifications}
+              onValueChange={handleToggle(setPushNotifications, 'Push Alerts')}
+              trackColor={{ false: '#E2E8F0', true: COLORS.primary + '80' }}
+              thumbColor={pushNotifications ? COLORS.primary : '#f4f3f4'}
+            />
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Current Password</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                placeholder="Enter current password"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry={!showCurrent}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowCurrent(v => !v)}>
-                <MaterialCommunityIcons name={showCurrent ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94A3B8" />
-              </TouchableOpacity>
+          <View style={[styles.divider, { backgroundColor: currentColors.divider }]} />
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: currentColors.text }]}>Email Alerts</Text>
+              <Text style={[styles.settingDesc, { color: currentColors.subText }]}>Weekly reports and payouts</Text>
             </View>
+            <Switch
+              value={emailAlerts}
+              onValueChange={handleToggle(setEmailAlerts, 'Email Alerts')}
+              trackColor={{ false: '#E2E8F0', true: COLORS.primary + '80' }}
+              thumbColor={emailAlerts ? COLORS.primary : '#f4f3f4'}
+            />
+          </View>
+        </View>
+
+        {/* App Preferences Section */}
+        <View style={[styles.section, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
+          <View style={styles.sectionTitleRow}>
+            <View style={[styles.sectionIcon, { backgroundColor: currentColors.iconBg }]}>
+              <MaterialCommunityIcons name="cellphone-cog" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>App Preferences</Text>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>New Password</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="Enter new password"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry={!showNew}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowNew(v => !v)}>
-                <MaterialCommunityIcons name={showNew ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94A3B8" />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.settingRow} activeOpacity={0.7} onPress={() => Toast.show({ type: 'info', text1: 'Language set to English', position: 'bottom' })}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: currentColors.text }]}>Language</Text>
+              <Text style={[styles.settingDesc, { color: currentColors.subText }]}>English</Text>
             </View>
-            {newPassword.length > 0 && (
-              <View style={styles.strengthRow}>
-                {[1, 2, 3, 4].map(i => (
-                  <View
-                    key={i}
-                    style={[styles.strengthBar, { backgroundColor: i <= strength.score ? strength.color : '#E2E8F0' }]}
-                  />
-                ))}
-                <Text style={[styles.strengthLabel, { color: strength.color }]}>{strength.label}</Text>
-              </View>
-            )}
+            <MaterialCommunityIcons name="chevron-right" size={20} color={currentColors.subText} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: currentColors.divider }]} />
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: currentColors.text }]}>Dark Mode</Text>
+              <Text style={[styles.settingDesc, { color: currentColors.subText }]}>Switch to a darker theme</Text>
+            </View>
+            <Switch
+              value={darkMode}
+              onValueChange={setDarkMode}
+              trackColor={{ false: '#E2E8F0', true: COLORS.primary + '80' }}
+              thumbColor={darkMode ? COLORS.primary : '#f4f3f4'}
+            />
+          </View>
+        </View>
+
+        {/* Security Section */}
+        <View style={[styles.section, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
+          <View style={styles.sectionTitleRow}>
+            <View style={[styles.sectionIcon, { backgroundColor: currentColors.iconBg }]}>
+              <MaterialCommunityIcons name="shield-check-outline" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Security</Text>
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Confirm New Password</Text>
-            <View style={styles.inputWrap}>
-              <TextInput
-                style={styles.input}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter new password"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry={!showConfirm}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowConfirm(v => !v)}>
-                <MaterialCommunityIcons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94A3B8" />
-              </TouchableOpacity>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={[styles.settingLabel, { color: currentColors.text }]}>Biometric Login</Text>
+              <Text style={[styles.settingDesc, { color: currentColors.subText }]}>Use FaceID or Fingerprint</Text>
             </View>
-            {confirmPassword.length > 0 && newPassword !== confirmPassword && (
-              <Text style={styles.errorText}>Passwords do not match</Text>
-            )}
+            <Switch
+              value={biometricAuth}
+              onValueChange={handleToggle(setBiometricAuth, 'Biometric Login')}
+              trackColor={{ false: '#E2E8F0', true: COLORS.primary + '80' }}
+              thumbColor={biometricAuth ? COLORS.primary : '#f4f3f4'}
+            />
+          </View>
+        </View>
+
+        {/* Account Management Section */}
+        <View style={[styles.section, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
+          <View style={styles.sectionTitleRow}>
+            <View style={[styles.sectionIcon, { backgroundColor: currentColors.iconBg }]}>
+              <MaterialCommunityIcons name="account-cog-outline" size={18} color={COLORS.primary} />
+            </View>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Account Management</Text>
           </View>
 
-</View>
+          <TouchableOpacity style={[styles.destructiveBtn, { backgroundColor: isDark ? '#3F1616' : '#FEF2F2', borderColor: isDark ? '#EF4444' : '#FEE2E2' }]} onPress={handleDeleteAccount} activeOpacity={0.7}>
+            <MaterialCommunityIcons name="delete-outline" size={20} color="#EF4444" />
+            <Text style={styles.destructiveBtnText}>Request Account Deletion</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScreenWrapper>
     </View>
   );
@@ -168,11 +175,11 @@ const saveButton = (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
- 
   content: { padding: 16, paddingBottom: 40 },
   section: {
     backgroundColor: '#fff', borderRadius: 18, padding: 20,
     borderWidth: 1, borderColor: '#E2E8F0', ...SHADOWS.soft,
+    marginBottom: 16,
   },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
   sectionIcon: {
@@ -180,23 +187,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-  fieldGroup: { marginBottom: 16 },
-  label: { fontSize: 12, fontWeight: '700', color: '#64748B', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', position: 'relative' },
-  input: {
-    flex: 1, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    paddingRight: 44, fontSize: 14, color: '#0F172A', fontWeight: '500',
+  settingRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 4,
   },
-  eyeBtn: { position: 'absolute', right: 12 },
-  strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  strengthBar: { flex: 1, height: 4, borderRadius: 2 },
-  strengthLabel: { fontSize: 11, fontWeight: '700', minWidth: 40 },
-  errorText: { fontSize: 12, color: '#EF4444', marginTop: 4, fontWeight: '500' },
-  saveBtn: {
-    backgroundColor: COLORS.primary, borderRadius: 14, height: 50,
-    justifyContent: 'center', alignItems: 'center', marginTop: 4,
+  settingInfo: { flex: 1, paddingRight: 16 },
+  settingLabel: { fontSize: 15, fontWeight: '600', color: '#1E293B', marginBottom: 2 },
+  settingDesc: { fontSize: 12, color: '#64748B' },
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 14 },
+  destructiveBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: '#FEE2E2',
   },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  destructiveBtnText: { fontSize: 14, fontWeight: '700', color: '#EF4444' },
 });

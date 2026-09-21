@@ -3,6 +3,8 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   RefreshControl, StatusBar, ActivityIndicator, ScrollView, Platform, Share, Linking
 } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -186,7 +188,10 @@ export default function DoctorHomeScreen() {
             <TouchableOpacity
               key={p}
               style={[styles.periodPill, period === p && styles.periodPillActive]}
-              onPress={() => setPeriod(p)}
+              onPress={() => {
+                setPeriod(p);
+                loadData(p);
+              }}
             >
               <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
                 {p === 'ALL' ? 'All Time' : p === 'MONTHLY' ? 'This Month' : 'This Week'}
@@ -295,9 +300,19 @@ export default function DoctorHomeScreen() {
 
                       <TouchableOpacity
                         style={styles.iconBtn}
-                        onPress={() => {
+                        onPress={async () => {
                            if (r.report?.pdfUrl) {
-                             Linking.openURL(r.report.pdfUrl);
+                             try {
+                               const fileUri = FileSystem.documentDirectory + `report_${r.patientName.replace(/\s+/g, '_')}.pdf`;
+                               const { uri } = await FileSystem.downloadAsync(r.report.pdfUrl, fileUri);
+                               if (await Sharing.isAvailableAsync()) {
+                                 await Sharing.shareAsync(uri);
+                               } else {
+                                 Linking.openURL(r.report.pdfUrl);
+                               }
+                             } catch (e) {
+                               Linking.openURL(r.report.pdfUrl);
+                             }
                            } else {
                              showError('Report PDF not available to download yet');
                            }
@@ -414,7 +429,7 @@ const styles = StyleSheet.create({
   doctorName: { fontSize: 18, fontWeight: '900', color: '#FFFFFF' },
   doctorSub: { fontSize: 12, color: '#E6FFFA', marginTop: 2 },
 
-  sectionHeading: { fontSize: 15, fontWeight: '800', color: '#1E293B', marginBottom: 12 },
+  sectionHeading: { flexShrink: 1, fontSize: 15, fontWeight: '800', color: '#1E293B', marginBottom: 12, marginRight: 8 },
   actionsContainer: { gap: 12, marginBottom: 20 },
   actionBtn: {
     flexDirection: 'row',
@@ -450,9 +465,11 @@ const styles = StyleSheet.create({
   periodText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
   periodTextActive: { color: '#FFFFFF' },
 
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', marginBottom: 24 },
   statCard: {
-    width: '48%',
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 140,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 14,

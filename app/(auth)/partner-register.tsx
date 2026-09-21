@@ -64,8 +64,6 @@ export default function PartnerRegisterScreen() {
     name: '',
     email: '',
     mobile: '',
-    password: '',
-    confirmPassword: '',
     role: 'Lab Partner',
     // Lab Details
     labName: '',
@@ -145,14 +143,7 @@ export default function PartnerRegisterScreen() {
       setServerError('Please enter a valid 10-digit mobile number.');
       return;
     }
-    if (!form.password || form.password.length < 6) {
-      setServerError('Password must be at least 6 characters long.');
-      return;
-    }
-    if (form.password !== form.confirmPassword) {
-      setServerError('Passwords do not match.');
-      return;
-    }
+
     if (!agreedToTerms) {
       setServerError('Please accept the Terms of Service & Privacy Policy.');
       return;
@@ -361,7 +352,7 @@ export default function PartnerRegisterScreen() {
         name: form.name.trim(),
         email: form.email.trim() || undefined,
         mobile: form.mobile.trim(),
-        password: form.password,
+
         labName: form.labName.trim(),
         ownerName: form.ownerName.trim() || form.name.trim(),
         role: form.role || 'Lab Partner',
@@ -409,17 +400,7 @@ export default function PartnerRegisterScreen() {
         <TextInput style={styles.input} placeholder="lab@example.com" placeholderTextColor="#94A3B8" autoCapitalize="none" value={form.email} onChangeText={v => updateField('email', v)} />
       </View>
 
-      <Text style={styles.fieldLabel}>Password *</Text>
-      <View style={styles.inputWrap}>
-        <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder="At least 6 characters" placeholderTextColor="#94A3B8" secureTextEntry value={form.password} onChangeText={v => updateField('password', v)} />
-      </View>
 
-      <Text style={styles.fieldLabel}>Confirm Password *</Text>
-      <View style={styles.inputWrap}>
-        <MaterialCommunityIcons name="lock-check-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder="Re-enter password" placeholderTextColor="#94A3B8" secureTextEntry value={form.confirmPassword} onChangeText={v => updateField('confirmPassword', v)} />
-      </View>
 
       <TouchableOpacity style={styles.checkboxRow} onPress={() => setAgreedToTerms(!agreedToTerms)}>
         <MaterialCommunityIcons name={agreedToTerms ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={agreedToTerms ? COLORS.primary : '#94A3B8'} />

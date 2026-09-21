@@ -20,8 +20,7 @@ export default function PhlebotomistRegisterScreen() {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+
   type QualType = 'DMLT' | 'BMLT' | 'OTHER';
   const [qualType, setQualType] = useState<QualType>('DMLT');
   const [otherQualification, setOtherQualification] = useState('');
@@ -147,7 +146,7 @@ export default function PhlebotomistRegisterScreen() {
     const cleanMobile = mobile.trim().replace(/\D/g, '');
     if (!cleanMobile || cleanMobile.length !== 10) { setServerError('Please enter a valid 10-digit mobile number.'); return; }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setServerError('Please enter a valid email address.'); return; }
-    if (!password || password.length < 6) { setServerError('Password must be at least 6 characters long.'); return; }
+
     
     const finalQual = qualType === 'DMLT' ? 'DMLT' : qualType === 'BMLT' ? 'BMLT' : otherQualification.trim();
     if (qualType === 'OTHER' && !finalQual) { setServerError('Please specify your qualification.'); return; }
@@ -166,7 +165,7 @@ export default function PhlebotomistRegisterScreen() {
         name: name.trim(),
         email: email.trim() || undefined,
         mobile: cleanMobile,
-        password,
+
         qualification: finalQual,
         otherDetails: otherDetails.trim() || undefined,
         experience: experience.trim(),
@@ -263,14 +262,7 @@ export default function PhlebotomistRegisterScreen() {
             <TextInput style={styles.input} placeholder="rahul@example.com" placeholderTextColor="#94A3B8" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
           </View>
 
-          <Text style={styles.fieldLabel}>Password *</Text>
-          <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput style={[styles.input, { flex: 1 }]} placeholder="At least 6 characters" placeholderTextColor="#94A3B8" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
-              <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
-            </TouchableOpacity>
-          </View>
+
 
           <Text style={styles.fieldLabel}>Other Details / Specialization (Optional)</Text>
           <View style={styles.inputWrap}>

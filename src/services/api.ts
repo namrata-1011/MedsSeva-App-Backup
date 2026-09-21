@@ -21,7 +21,7 @@ const getBaseUrl = () => {
   }
 
   // Fallback
-  return 'http://10.207.247.51:5000/api';
+  return 'http://10.207.247.1:5000/api';
 };
 
 const api = axios.create({
@@ -143,7 +143,15 @@ updateMe: (data: { name?: string; email?: string; dob?: string; gender?: string;
     }).then(res => res.data);
   },
   getPartnerOnboardingDocuments: () => api.get('/partner/documents').then(res => res.data),
-  getPartnerBookings: () => api.get('/partner/bookings').then(res => res.data),
+  getPartnerBookings: async () => {
+    const res = await api.get('/partner/bookings');
+    return res.data;
+  },
+  getPartnerStats: async (date?: string) => {
+    const params = date ? { date } : {};
+    const res = await api.get('/partner/stats', { params });
+    return res.data;
+  },
   getPartnerHistory: () => api.get('/partner/history').then(res => res.data),
 getPartnerNotifications: () => api.get('/partner/notifications').then(res => res.data),
   getBookingOtp: (bookingId: string) => api.get(`/bookings/${bookingId}/collection-otp`).then(res => res.data),
@@ -201,8 +209,6 @@ initiateUpiCollection: (bookingId: string) => api.post(`/partner/bookings/${book
   checkUpiPaymentStatus: (bookingId: string) => api.get(`/partner/bookings/${bookingId}/upi-status`).then(res => res.data),
   verifyPartnerUpiPayment: (bookingId: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
     api.post(`/partner/bookings/${bookingId}/verify-upi`, data).then(res => res.data),
-getPartnerStats: () => api.get('/partner/stats').then(res => res.data),
-
   uploadPrescription: (formData: FormData) =>
     api.post('/prescriptions/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -256,6 +262,9 @@ uploadAvatar: (imageUri: string, mimeType: string, fileName: string) => {
     api.post(`/partner/bookings/${bookingId}/select-branch`, { branchId }).then(res => res.data),
   confirmBranchDelivery: (bookingId: string) =>
     api.post(`/partner/bookings/${bookingId}/confirm-delivery`).then(res => res.data),
+  getPartnerEarnings: () => api.get('/partner/earnings').then(res => res.data),
+  updatePayoutFrequency: (frequency: string) => api.patch('/partner/payout-frequency', { frequency }).then(res => res.data),
+  updateCommissionRate: (rate: number | string) => api.patch('/partner/commission-rate', { rate }).then(res => res.data),
 
 submitRating: (data: { bookingId: string; rating: number; review?: string }) =>
     api.post('/ratings', data).then(res => res.data),
@@ -273,6 +282,8 @@ submitRating: (data: { bookingId: string; rating: number; review?: string }) =>
   // Doctor Portal & Sample Actions
   getDoctorPortalData: (period?: string) =>
     api.get('/commissions/doctor/portal-data', { params: period ? { period } : {} }).then(res => res.data),
+  updateDoctorProfile: (data: any) =>
+    api.patch('/doctors/profile/me', data).then(res => res.data),
   requestDoctorSamplePickup: (data: {
     patientName: string;
     patientMobile: string;

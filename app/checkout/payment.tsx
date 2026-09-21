@@ -198,12 +198,16 @@ const isLabVisit = booking.collectionMode === 'lab';
             <Text style={styles.summaryLabel}>Total Tests</Text>
             <Text style={styles.summaryValue}>{cart.items.length}</Text>
           </View>
-     <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Amount to Pay</Text>
-          </View>
-          <Text style={styles.amountHelperText}>
-            Amount will be calculated at checkout.
-          </Text>
+          {isLabVisit ? (
+            <Text style={[styles.amountHelperText, { fontSize: 13, color: COLORS.primary, fontWeight: '600', marginTop: 4 }]}>
+              Amount will be calculated at checkout from lab.
+            </Text>
+          ) : (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Amount to Pay</Text>
+              <Text style={styles.amountHighlight}>₹{cart.total}</Text>
+            </View>
+          )}
         </View>
 
       <Text style={styles.sectionTitle}>

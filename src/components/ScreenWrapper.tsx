@@ -7,10 +7,11 @@ import {
   StatusBar,
   ScrollView,
   KeyboardAvoidingView,
-  ViewStyle,
   StyleProp,
+  ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+const SafeArea = SafeAreaView as any;
 import { COLORS } from '../theme/theme';
 
 interface ScreenWrapperProps {
@@ -18,9 +19,9 @@ interface ScreenWrapperProps {
   bottomButton?: React.ReactNode;
   scrollable?: boolean;
   backgroundColor?: string;
-  style?: StyleProp<ViewStyle>;
-  contentContainerStyle?: StyleProp<ViewStyle>;
-  scrollViewStyle?: StyleProp<ViewStyle>;
+  style?: any;
+  contentContainerStyle?: any;
+  scrollViewStyle?: any;
   disableKeyboardDismiss?: boolean;
   refreshControl?: React.ReactElement;
   extraScrollHeight?: number;
@@ -49,7 +50,7 @@ export default function ScreenWrapper({
 
   if (!scrollable) {
     return (
-      <View style={[styles.container, { backgroundColor }, style]}>
+      <SafeArea style={[styles.container, { backgroundColor }, style] as any} edges={['top', 'left', 'right']}>
         <View style={[styles.nonScrollContent, contentContainerStyle]}>
           {children}
         </View>
@@ -63,48 +64,50 @@ export default function ScreenWrapper({
             {bottomButton}
           </View>
         )}
-      </View>
+      </SafeArea>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor }, style]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? extraScrollHeight : 0}
-    >
-      <ScrollView
-        style={[styles.scrollView, scrollViewStyle]}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { 
-            paddingBottom: bottomButton ? 80 + bottomInset : 24 + bottomInset 
-          },
-          contentContainerStyle,
-        ]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        onScrollBeginDrag={handleScrollBeginDrag}
-        showsVerticalScrollIndicator={false}
-        bounces
-        alwaysBounceVertical
-        refreshControl={refreshControl as any}
-        scrollEventThrottle={16}
+    <SafeArea style={[styles.container, { backgroundColor }, style] as any} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? extraScrollHeight : 0}
       >
-        {children}
-      </ScrollView>
-
-      {bottomButton && (
-        <View
-          style={[
-            styles.buttonContainer,
-            { paddingBottom: bottomInset > 0 ? bottomInset : 16 },
+        <ScrollView
+          style={[styles.scrollView, scrollViewStyle]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: bottomButton ? 80 + bottomInset : 24 + bottomInset
+            },
+            contentContainerStyle,
           ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          onScrollBeginDrag={handleScrollBeginDrag}
+          showsVerticalScrollIndicator={false}
+          bounces
+          alwaysBounceVertical
+          refreshControl={refreshControl as any}
+          scrollEventThrottle={16}
         >
-          {bottomButton}
-        </View>
-      )}
-    </KeyboardAvoidingView>
+          {children}
+        </ScrollView>
+
+        {bottomButton && (
+          <View
+            style={[
+              styles.buttonContainer,
+              { paddingBottom: bottomInset > 0 ? bottomInset : 16 },
+            ]}
+          >
+            {bottomButton}
+          </View>
+        )}
+      </KeyboardAvoidingView>
+    </SafeArea>
   );
 }
 
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-scrollContent: {
+  scrollContent: {
     flexGrow: 1,
   },
   nonScrollContent: {

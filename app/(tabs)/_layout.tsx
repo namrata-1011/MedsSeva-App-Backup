@@ -64,7 +64,9 @@ export default function TabsLayout() {
 
 
   return (
-    <Tabs screenOptions={{
+    <Tabs 
+      backBehavior="history"
+      screenOptions={{
       headerShown: false,
       tabBarStyle: {
         backgroundColor: COLORS.surface,

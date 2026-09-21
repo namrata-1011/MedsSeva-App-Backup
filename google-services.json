@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "250723344972",
-    "project_id": "medsseva-365",
-    "storage_bucket": "medsseva-365.firebasestorage.app"
+    "project_number": "839294408960",
+    "project_id": "medsseva-7a6bd",
+    "storage_bucket": "medsseva-7a6bd.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:250723344972:android:20a4345c69c20e1c460ae9",
+        "mobilesdk_app_id": "1:839294408960:android:7cc13f382244c24603bbe5",
         "android_client_info": {
-          "package_name": "com.kanha0415.medssevaapp"
+          "package_name": "com.medssevaglobal.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBRMyFhaph44l1XKCFLjFx9Ee-dUhKKNE4"
+          "current_key": "AIzaSyCnb54szGFqyG-nY6TTBQZMVfl58iZJTpI"
         }
       ],
       "services": {

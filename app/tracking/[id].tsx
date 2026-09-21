@@ -8,12 +8,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import RNBlobUtil from 'react-native-blob-util';
+import * as Sharing from 'expo-sharing';
 import { Platform, PermissionsAndroid } from 'react-native';
 import { Image } from 'expo-image';
 import { showSuccess, showError } from '../../src/store/toastStore';
 
 import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
 import { apiService } from '../../src/services/api';
+import api from '../../src/services/api';
 const STATUS_ORDER = [
   'PENDING',
   'WAITING_FOR_PARTNER',
@@ -77,46 +79,43 @@ const liveBooking = bookings;
   const [downloading, setDownloading] = useState(false);
 
   const handleDownloadInvoice = async () => {
-    const invoiceUrl = liveBooking?.payment?.invoiceUrl;
+    let invoiceUrl = liveBooking?.payment?.invoiceUrl;
     const bookingCode = liveBooking?.bookingCode || 'Invoice';
-    if (!invoiceUrl) return;
-
-    if (Platform.OS === 'android' && Platform.Version < 29) {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          Alert.alert('Permission Denied', 'Storage permission is required to download the invoice.');
-          return;
-        }
-      } catch {}
+    if (!invoiceUrl && liveBooking?.id) {
+      const baseUrl = api.defaults.baseURL || 'http://localhost:5000/api';
+      invoiceUrl = `${baseUrl}/payments/invoice/${liveBooking.id}/pdf`;
     }
+    if (!invoiceUrl) return;
 
     setDownloading(true);
     try {
       const fileName = `MedSeva-Invoice-${bookingCode}.pdf`;
-      const downloadPath =
-        Platform.OS === 'android'
-          ? `${RNBlobUtil.fs.dirs.DownloadDir}/${fileName}`
-          : `${RNBlobUtil.fs.dirs.DocumentDir}/${fileName}`;
+      
+      if (Platform.OS === 'android') {
+        const downloadPath = `${RNBlobUtil.fs.dirs.DownloadDir}/${fileName}`;
+        await RNBlobUtil.config({
+          path: downloadPath,
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            title: fileName,
+            description: 'MedsSeva Invoice PDF',
+            mime: 'application/pdf',
+            path: downloadPath,
+          },
+        }).fetch('GET', invoiceUrl);
 
-      await RNBlobUtil.config({
-        fileCache: true,
-        path: downloadPath,
-        addAndroidDownloads: {
-          useDownloadManager: true,
-          notification: true,
-          title: fileName,
-          description: 'Downloading MedSeva Invoice',
-          mime: 'application/pdf',
-          mediaScannable: true,
-        },
-      }).fetch('GET', invoiceUrl);
-
-      showSuccess('Invoice downloaded successfully.');
+        showSuccess('Invoice downloaded to your Notifications and Downloads folder.');
+        setTimeout(() => {
+          RNBlobUtil.android.actionViewIntent(downloadPath, 'application/pdf').catch(() => {});
+        }, 1000);
+      } else {
+        const tempPath = `${RNBlobUtil.fs.dirs.CacheDir}/${fileName}`;
+        const res = await RNBlobUtil.config({ path: tempPath, fileCache: true }).fetch('GET', invoiceUrl);
+        await RNBlobUtil.ios.previewDocument(res.path());
+      }
     } catch {
-      showError('Failed to download invoice. Please try again.');
+      Alert.alert('Error', 'Failed to download and open invoice.');
     } finally {
       setDownloading(false);
     }
@@ -139,6 +138,8 @@ const liveBooking = bookings;
     : (liveBooking?.assignedPartner?.role || (liveBooking?.assignedExecutive ? 'Phlebotomist' : 'Sample Collection Executive'));
   const partnerRating = liveBooking?.assignedPartner?.rating?.toFixed(1) || '5.0';
   const testNames = liveBooking?.tests?.map((t: any) => t.test?.name).filter(Boolean).join(', ') || 'Diagnostic Test';
+
+  const hasInvoice = !!liveBooking?.payment?.invoiceUrl || !!liveBooking?.id;
 
   return (
     <View style={styles.container}>

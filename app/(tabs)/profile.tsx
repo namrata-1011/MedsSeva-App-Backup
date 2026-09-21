@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -16,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 
-import { COLORS, TYPOGRAPHY } from '../../src/theme/theme';
+import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
 import { fetchFamilyMembers } from '../../src/store/slices/familySlice';
 import { RootState, AppDispatch } from '../../src/store';
 import { performLogout } from '../../src/utils/logout';
@@ -31,9 +32,9 @@ export default function ProfileScreen() {
   const user = useSelector((state: RootState) => state.auth.user);
   const members = useSelector((state: RootState) => state.family.members);
 
-
-  const [showLogoutSheet, setShowLogoutSheet] = React.useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+  const [showLogoutSheet, setShowLogoutSheet] = useState(false);
+  const [showPhotoOptions, setShowPhotoOptions] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const uploadLockRef = useRef(false);
 
   useEffect(() => {
@@ -44,35 +45,20 @@ export default function ProfileScreen() {
     setShowLogoutSheet(true);
   };
 
-  const handleAvatarPress = async () => {
+  const handleAvatarPress = () => {
     if (uploadLockRef.current || isUploadingAvatar) return;
+    setShowPhotoOptions(true);
+  };
 
-    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-    const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (libraryStatus !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
-      return;
+  const handlePhotoOptionSelect = async (option: 'camera' | 'gallery') => {
+    setShowPhotoOptions(false);
+    
+    if (option === 'camera') {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      openCamera(status);
+    } else {
+      openGallery();
     }
-
-    Alert.alert(
-      'Update Profile Photo',
-      'Choose how you would like to update your photo.',
-      [
-        {
-          text: 'Take Photo',
-          onPress: () => openCamera(cameraStatus),
-        },
-        {
-          text: 'Choose from Gallery',
-          onPress: () => openGallery(),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
   };
 
   const openCamera = async (cameraStatus: string) => {
@@ -318,6 +304,38 @@ export default function ProfileScreen() {
 
   <Text style={styles.versionText}>App Version 1.0.0 (Build 42)</Text>
 </ScrollView>
+
+      {/* Photo Options Modal */}
+      <Modal visible={showPhotoOptions} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.photoOptionsCard}>
+            <TouchableOpacity 
+              style={styles.modalCloseBtn}
+              onPress={() => setShowPhotoOptions(false)}
+            >
+              <MaterialCommunityIcons name="close" size={24} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+            
+            <Text style={styles.modalTitle}>Update Profile Photo</Text>
+            
+            <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('camera')}>
+              <View style={[styles.photoOptionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <MaterialCommunityIcons name="camera" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.photoOptionText}>Take Photo</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.photoOptionBtn} onPress={() => handlePhotoOptionSelect('gallery')}>
+              <View style={[styles.photoOptionIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <MaterialCommunityIcons name="image-multiple" size={24} color={COLORS.primary} />
+              </View>
+              <Text style={styles.photoOptionText}>Choose from Gallery</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#CBD5E1" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <ConfirmSheet
         visible={showLogoutSheet}
@@ -572,4 +590,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
   },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    paddingHorizontal: 20 
+  },
+  photoOptionsCard: { 
+    width: '100%', 
+    backgroundColor: '#fff', 
+    borderRadius: 24, 
+    padding: 24, 
+    ...SHADOWS.md 
+  },
+  modalCloseBtn: { 
+    position: 'absolute', 
+    top: 16, 
+    right: 16, 
+    padding: 4, 
+    zIndex: 1 
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 20, textAlign: 'center' },
+  photoOptionBtn: {
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  photoOptionIcon: {
+    width: 48, height: 48, borderRadius: 24, justifyContent: 'center',
+    alignItems: 'center', marginRight: 16,
+  },
+  photoOptionText: { fontSize: 16, fontWeight: '600', color: '#334155', flex: 1 },
 });

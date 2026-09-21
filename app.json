@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
     "scheme": "medssevaapp",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.kanha0415.medssevaapp",
@@ -16,7 +16,7 @@
       }
     },
     "android": {
-      "package": "com.kanha0415.medssevaapp",
+      "package": "com.medssevaglobal.app",
       "usesCleartextTraffic": true,
       "config": {
         "googleMaps": {

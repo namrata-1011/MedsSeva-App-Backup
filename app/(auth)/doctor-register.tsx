@@ -19,8 +19,7 @@ export default function DoctorRegisterScreen() {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+
   const [qualification, setQualification] = useState('');
   const [registrationNo, setRegistrationNo] = useState('');
   const [specialization, setSpecialization] = useState('');
@@ -118,7 +117,7 @@ export default function DoctorRegisterScreen() {
     const cleanMobile = mobile.trim().replace(/\D/g, '');
     if (!cleanMobile || cleanMobile.length !== 10) { setServerError('Please enter a valid 10-digit mobile number.'); return; }
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setServerError('Please enter a valid email address.'); return; }
-    if (!password || password.length < 6) { setServerError('Password must be at least 6 characters long.'); return; }
+
     if (!qualification.trim()) { setServerError('Please enter Medical Degree / Qualification.'); return; }
     
     if (!aadhaarDoc && !panDoc && !dlDoc) { setServerError('Please upload at least one Government ID (Aadhaar, PAN, or Driving License).'); return; }
@@ -136,7 +135,7 @@ export default function DoctorRegisterScreen() {
         name: name.trim(),
         email: email.trim() || undefined,
         mobile: cleanMobile,
-        password,
+
         qualification: qualification.trim(),
         registrationNo: registrationNo.trim(),
         specialization: specialization.trim() || 'General Medicine / Pathology',
@@ -239,14 +238,6 @@ export default function DoctorRegisterScreen() {
             <TextInput style={styles.input} placeholder="doctor@example.com" placeholderTextColor="#94A3B8" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
           </View>
 
-          <Text style={styles.fieldLabel}>Password *</Text>
-          <View style={styles.inputWrap}>
-            <MaterialCommunityIcons name="lock-outline" size={18} color="#94A3B8" style={styles.inputIcon} />
-            <TextInput style={[styles.input, { flex: 1 }]} placeholder="At least 6 characters" placeholderTextColor="#94A3B8" secureTextEntry={!showPassword} value={password} onChangeText={setPassword} />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
-              <MaterialCommunityIcons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
-            </TouchableOpacity>
-          </View>
 
           <Text style={styles.fieldLabel}>Medical Degree / Qualification *</Text>
           <View style={styles.inputWrap}>

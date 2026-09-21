@@ -16,6 +16,7 @@ export default function PackagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isFilterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [sampleTypeFilter, setSampleTypeFilter] = useState<'ALL' | 'HOME' | 'LAB'>('ALL');
 
 const { data: packages = [] } = useQuery({
     queryKey: ['packages'],
@@ -39,7 +40,12 @@ const { data: packages = [] } = useQuery({
                          (pkg.subtitle || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (pkg.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'all' ? true : pkg.categoryId === selectedCategory;
-    return matchesQuery && matchesCategory;
+    
+    let matchesSampleType = true;
+    if (sampleTypeFilter === 'HOME') matchesSampleType = pkg.homeCollection === true;
+    else if (sampleTypeFilter === 'LAB') matchesSampleType = pkg.homeCollection === false;
+
+    return matchesQuery && matchesCategory && matchesSampleType;
   });
 
   const renderCategoryChips = () => (
@@ -105,8 +111,8 @@ const { data: packages = [] } = useQuery({
         <Text style={styles.resultsCount}>{filteredPackages.length} health packages found</Text>
         <FlatList
           data={filteredPackages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+          keyExtractor={(item: any) => item.id}
+          renderItem={({ item }: { item: any }) => (
             <PremiumPackageCard 
               packageData={item} 
               horizontal={false} 
@@ -131,11 +137,17 @@ const { data: packages = [] } = useQuery({
         
         <Text style={styles.filterSectionTitle}>Sample Type</Text>
         <View style={styles.filterRow}>
-          <TouchableOpacity style={[styles.filterChip, styles.filterChipActive]}>
-            <Text style={styles.filterChipTextActive}>Home Collection</Text>
+          <TouchableOpacity 
+            style={[styles.filterChip, sampleTypeFilter === 'HOME' && styles.filterChipActive]}
+            onPress={() => setSampleTypeFilter(sampleTypeFilter === 'HOME' ? 'ALL' : 'HOME')}
+          >
+            <Text style={sampleTypeFilter === 'HOME' ? styles.filterChipTextActive : styles.filterChipText}>Home Collection</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <Text style={styles.filterChipText}>Lab Test Only</Text>
+          <TouchableOpacity 
+            style={[styles.filterChip, sampleTypeFilter === 'LAB' && styles.filterChipActive]}
+            onPress={() => setSampleTypeFilter(sampleTypeFilter === 'LAB' ? 'ALL' : 'LAB')}
+          >
+            <Text style={sampleTypeFilter === 'LAB' ? styles.filterChipTextActive : styles.filterChipText}>Lab Test Only</Text>
           </TouchableOpacity>
         </View>
 

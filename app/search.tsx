@@ -186,7 +186,8 @@ export default function SearchScreen() {
 
       {/* Filter Bottom Sheet */}
       <PremiumBottomSheet visible={isFilterSheetOpen} onClose={() => setFilterSheetOpen(false)}>
-        <Text style={styles.sheetTitle}>Filter Options</Text>
+        <View style={{ flex: 1, paddingHorizontal: 24 }}>
+          <Text style={styles.sheetTitle}>Filter Options</Text>
         
         <Text style={styles.filterSectionTitle}>Test Type</Text>
         <View style={styles.filterRow}>
@@ -248,8 +249,9 @@ export default function SearchScreen() {
             setFilterSheetOpen(false);
           }}
         >
-          <Text style={styles.applyFilterText}>Apply Filters</Text>
-        </TouchableOpacity>
+            <Text style={styles.applyFilterText}>Apply Filters</Text>
+          </TouchableOpacity>
+        </View>
       </PremiumBottomSheet>
     </View>
   );

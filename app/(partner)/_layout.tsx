@@ -10,7 +10,9 @@ export default function PartnerLayout() {
   const tabBarHeight = 60 + insets.bottom;
 
   return (
-    <Tabs screenOptions={{
+    <Tabs 
+      backBehavior="history"
+      screenOptions={{
       headerShown: false,
       tabBarStyle: {
         backgroundColor: '#FFFFFF',

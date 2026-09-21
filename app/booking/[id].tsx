@@ -5,11 +5,13 @@ import {
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import RNBlobUtil from 'react-native-blob-util';
+import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
 import { apiService } from '../../src/services/api';
+import api from '../../src/services/api';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pending',
@@ -91,32 +93,32 @@ const handleOpenPdf = useCallback(async (url: string) => {
       const fileName = invoiceNumber
         ? `MedSeva-Invoice-${invoiceNumber}.pdf`
         : `MedSeva-Invoice-${Date.now()}.pdf`;
-
-      const { dirs } = RNBlobUtil.fs;
-      const destPath = Platform.OS === 'ios'
-        ? `${dirs.DocumentDir}/${fileName}`
-        : `${dirs.DownloadDir}/${fileName}`;
-
-      const res = await RNBlobUtil.config({
-        path: destPath,
-        fileCache: true,
-        addAndroidDownloads: {
-          useDownloadManager: true,
-          notification: true,
-          title: fileName,
-          description: 'MedSeva Invoice',
-          mime: 'application/pdf',
-          mediaScannable: true,
-        },
-      }).fetch('GET', url);
-
-      if (Platform.OS === 'ios') {
-        await RNBlobUtil.ios.previewDocument(res.path());
+      
+      if (Platform.OS === 'android') {
+        const downloadPath = `${RNBlobUtil.fs.dirs.DownloadDir}/${fileName}`;
+        await RNBlobUtil.config({
+          path: downloadPath,
+          addAndroidDownloads: {
+            useDownloadManager: true,
+            notification: true,
+            title: fileName,
+            description: 'MedsSeva Invoice PDF',
+            mime: 'application/pdf',
+            path: downloadPath,
+          },
+        }).fetch('GET', url);
+        
+        Alert.alert('Success', 'Invoice downloaded to your Notifications and Downloads folder.');
+        setTimeout(() => {
+          RNBlobUtil.android.actionViewIntent(downloadPath, 'application/pdf').catch(() => {});
+        }, 1000);
       } else {
-        Alert.alert('Downloaded', `Invoice saved to Downloads folder.`);
+        const tempPath = `${RNBlobUtil.fs.dirs.CacheDir}/${fileName}`;
+        const res = await RNBlobUtil.config({ path: tempPath, fileCache: true }).fetch('GET', url);
+        await RNBlobUtil.ios.previewDocument(res.path());
       }
     } catch {
-      Alert.alert('Error', 'Failed to download invoice. Please try again.');
+      Alert.alert('Error', 'Failed to download and open invoice.');
     }
   }, []);
 
@@ -174,7 +176,13 @@ if (isLoading) {
     : null;
 
   const paymentMethod = booking.paymentMode || booking.payment?.method || null;
-  const invoiceUrl = booking.payment?.invoiceUrl || null;
+  
+  let invoiceUrl = booking.payment?.invoiceUrl || null;
+  if (!invoiceUrl && booking.id) {
+    const baseUrl = api.defaults.baseURL || 'http://localhost:5000/api';
+    invoiceUrl = `${baseUrl}/payments/invoice/${booking.id}/pdf`;
+  }
+  const hasInvoice = !!invoiceUrl;
 
   const pricingSnapshot = booking.pricingSnapshot;
 
@@ -273,7 +281,7 @@ if (isLoading) {
           </View>
         </Section>
 
-        {invoiceUrl && (
+        {hasInvoice && (
           <Section title="Invoice">
             <View style={styles.invoiceReady}>
               <MaterialCommunityIcons name="file-check-outline" size={22} color={COLORS.success} />
@@ -282,7 +290,7 @@ if (isLoading) {
             <View style={styles.invoiceBtnRow}>
               <TouchableOpacity
                 style={[styles.invoiceBtn, styles.invoiceBtnPrimary, { flex: 1 }]}
-                onPress={() => handleDownloadPdf(invoiceUrl, booking.payment?.invoiceNumber)}
+                onPress={() => handleDownloadPdf(invoiceUrl, booking.payment?.invoiceNumber || booking.bookingCode)}
               >
                 <MaterialCommunityIcons name="download-outline" size={18} color="#fff" />
                 <Text style={styles.invoiceBtnText}>Download Invoice</Text>

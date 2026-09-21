@@ -213,36 +213,40 @@ const handleBookNow = () => {
 
       {/* Preparation Bottom Sheet */}
       <PremiumBottomSheet visible={isPrepSheetOpen} onClose={() => setPrepSheetOpen(false)} height={400}>
-        <Text style={styles.sheetTitle}>Preparation Instructions</Text>
-        <View style={styles.prepContainer}>
-          <MaterialCommunityIcons name={pkg.fastingRequired ? "food-off" : "food-apple"} size={48} color={COLORS.primary} />
-          <Text style={styles.prepStatusText}>
-            {pkg.fastingRequired ? 'Fasting Required' : 'No Special Preparation'}
-          </Text>
-          <Text style={styles.prepDetailsText}>
-            {pkg.preparation || (pkg.fastingRequired 
-              ? 'Please do not consume any food or beverages (other than water) for 10-12 hours prior to the test for accurate results.' 
-              : 'You can consume your normal diet. Ensure you stay hydrated before your sample collection.')}
-          </Text>
+        <View style={{ paddingHorizontal: 24, flex: 1 }}>
+          <Text style={styles.sheetTitle}>Preparation Instructions</Text>
+          <View style={styles.prepContainer}>
+            <MaterialCommunityIcons name={pkg.fastingRequired ? "food-off" : "food-apple"} size={48} color={COLORS.primary} />
+            <Text style={styles.prepStatusText}>
+              {pkg.fastingRequired ? 'Fasting Required' : 'No Special Preparation'}
+            </Text>
+            <Text style={styles.prepDetailsText}>
+              {pkg.preparation || (pkg.fastingRequired 
+                ? 'Please do not consume any food or beverages (other than water) for 10-12 hours prior to the test for accurate results.' 
+                : 'You can consume your normal diet. Ensure you stay hydrated before your sample collection.')}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.gotItButton} onPress={() => setPrepSheetOpen(false)}>
+            <Text style={styles.gotItText}>Understood</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.gotItButton} onPress={() => setPrepSheetOpen(false)}>
-          <Text style={styles.gotItText}>Understood</Text>
-        </TouchableOpacity>
       </PremiumBottomSheet>
 
       {/* FAQ Bottom Sheet */}
       <PremiumBottomSheet visible={isFaqSheetOpen} onClose={() => setFaqSheetOpen(false)} height={500}>
-        <Text style={styles.sheetTitle}>Frequently Asked Questions</Text>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.faqItem}>
-            <Text style={styles.faqQuestion}>Is home collection safe?</Text>
-            <Text style={styles.faqAnswer}>Yes, our phlebotomists follow strict hygiene and WHO guidelines using sealed, single-use kits.</Text>
-          </View>
-          <View style={styles.faqItem}>
-            <Text style={styles.faqQuestion}>When will I get my reports?</Text>
-            <Text style={styles.faqAnswer}>Your digital reports will be available on the app within {pkg.reportTime} after sample collection.</Text>
-          </View>
-        </ScrollView>
+        <View style={{ paddingHorizontal: 24, flex: 1 }}>
+          <Text style={styles.sheetTitle}>Frequently Asked Questions</Text>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.faqItem}>
+              <Text style={styles.faqQuestion}>Is home collection safe?</Text>
+              <Text style={styles.faqAnswer}>Yes, our phlebotomists follow strict hygiene and WHO guidelines using sealed, single-use kits.</Text>
+            </View>
+            <View style={styles.faqItem}>
+              <Text style={styles.faqQuestion}>When will I get my reports?</Text>
+              <Text style={styles.faqAnswer}>Your digital reports will be available on the app within {pkg.reportTime} after sample collection.</Text>
+            </View>
+          </ScrollView>
+        </View>
       </PremiumBottomSheet>
     </View>
   );

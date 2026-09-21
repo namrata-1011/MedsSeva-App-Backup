@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', width: '100%', marginTop: 8, marginBottom: 20, ...SHADOWS.soft,
   },
   loginBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  registerRow: { flexDirection: 'row', marginBottom: 10 },
+  registerRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 10 },
   registerText: { fontSize: 13, color: '#64748B' },
   registerLink: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
   copyright: { fontSize: 12, color: '#7A9AAA', textAlign: 'center', marginTop: 24 },

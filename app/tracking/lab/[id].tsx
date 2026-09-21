@@ -132,12 +132,7 @@ if (s === 'CONFIRMED') {
           <Text style={styles.statusBannerText}>{statusBannerConfig.text}</Text>
         </View>
 
-{branchName && (
-          <View style={styles.branchRow}>
-            <MaterialCommunityIcons name="hospital-building" size={20} color={COLORS.primary} />
-            <Text style={styles.branchText}>{branchName}</Text>
-          </View>
-        )}
+
         {liveBooking?.status === 'CONFIRMED' && (
           <TouchableOpacity
             style={styles.reachedBtn}
@@ -172,14 +167,22 @@ if (s === 'CONFIRMED') {
         ) : (
           <>
             <View style={styles.patientInfoContainer}>
-              <View style={styles.patientInfoCol}>
-                <Text style={styles.patientLabel}>Patient</Text>
-                <Text style={styles.patientValue}>{liveBooking?.patientName || '-'}</Text>
+              <View style={{ flexDirection: 'row', marginBottom: branchName ? 16 : 0 }}>
+                <View style={styles.patientInfoCol}>
+                  <Text style={styles.patientLabel}>Patient</Text>
+                  <Text style={styles.patientValue}>{liveBooking?.patientName || '-'}</Text>
+                </View>
+                <View style={[styles.patientInfoCol, { marginLeft: 16 }]}>
+                  <Text style={styles.patientLabel}>Tests</Text>
+                  <Text style={styles.patientValue} numberOfLines={2}>{testNames}</Text>
+                </View>
               </View>
-              <View style={[styles.patientInfoCol, { marginLeft: 16 }]}>
-                <Text style={styles.patientLabel}>Tests</Text>
-                <Text style={styles.patientValue} numberOfLines={2}>{testNames}</Text>
-              </View>
+              {branchName && (
+                <View>
+                  <Text style={styles.patientLabel}>Selected Branch</Text>
+                  <Text style={styles.patientValue}>{branchName}</Text>
+                </View>
+              )}
             </View>
 
             <Text style={styles.bookingIdText}>
@@ -309,8 +312,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   patientInfoContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     backgroundColor: COLORS.surface,
     padding: 16,
     borderRadius: 16,

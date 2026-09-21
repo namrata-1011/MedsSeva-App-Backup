@@ -60,6 +60,7 @@ export default function PhlebotomistHomeScreen() {
   const [declineTarget, setDeclineTarget] = useState<string | null>(null);
   const [showNotifCenter, setShowNotifCenter] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [showFullPhoto, setShowFullPhoto] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -205,13 +206,13 @@ export default function PhlebotomistHomeScreen() {
       {/* Header with Safe Area Insets to avoid Notch/Status Bar Overlap */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 6 }]}>
         <View style={styles.profileSection}>
-          <View style={styles.avatar}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setShowFullPhoto(true)} style={styles.avatar}>
             {user?.avatarUrl ? (
               <Image source={{ uri: user.avatarUrl }} style={{ width: 42, height: 42, borderRadius: 21 }} />
             ) : (
               <MaterialCommunityIcons name="needle" size={24} color={COLORS.primary} />
             )}
-          </View>
+          </TouchableOpacity>
           <View>
             <View style={[styles.roleBadge, !isFreelancer && styles.roleBadgeEmployee]}>
               <Text style={[styles.roleBadgeText, !isFreelancer && styles.roleBadgeTextEmployee]}>
@@ -422,8 +423,24 @@ export default function PhlebotomistHomeScreen() {
         onCancel={() => setDeclineTarget(null)}
       />
 
-      <Modal visible={showNotifCenter} animationType="slide">
+      <Modal visible={showNotifCenter} animationType="slide" onRequestClose={() => setShowNotifCenter(false)}>
         <NotificationCenter onClose={() => setShowNotifCenter(false)} />
+      </Modal>
+
+      <Modal visible={showFullPhoto} transparent animationType="fade" onRequestClose={() => setShowFullPhoto(false)}>
+        <View style={styles.fullPhotoBackdrop}>
+          <TouchableOpacity style={styles.fullPhotoClose} onPress={() => setShowFullPhoto(false)}>
+            <MaterialCommunityIcons name="close" size={28} color="#fff" />
+          </TouchableOpacity>
+          {user?.avatarUrl ? (
+            <Image source={{ uri: user.avatarUrl }} style={styles.fullPhotoImg} contentFit="contain" />
+          ) : (
+            <View style={styles.fullPhotoPlaceholder}>
+              <MaterialCommunityIcons name="needle" size={80} color={COLORS.primary} />
+              <Text style={{ color: '#fff', marginTop: 16, fontSize: 16 }}>No Photo Available</Text>
+            </View>
+          )}
+        </View>
       </Modal>
     </ScreenWrapper>
   );
@@ -802,9 +819,30 @@ const styles = StyleSheet.create({
     color: '#0369A1',
   },
   tipsSub: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#0284C7',
     marginTop: 2,
-    lineHeight: 16,
+    lineHeight: 14,
+  },
+  fullPhotoBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullPhotoClose: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  fullPhotoImg: {
+    width: '100%',
+    height: '70%',
+  },
+  fullPhotoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

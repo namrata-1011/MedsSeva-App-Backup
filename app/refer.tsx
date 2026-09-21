@@ -100,9 +100,9 @@ export default function ReferAndEarnScreen() {
         {/* Banner Poster Card */}
         <View style={styles.bannerCard}>
           <Image
-            source={require('../assets/images/refer_50_poster.png')}
+            source={require('../assets/images/referandearn.png')}
             style={styles.bannerImage}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </View>
 
@@ -209,8 +209,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1E293B' },
   scrollContent: { padding: 16 },
 
-  bannerCard: { width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 16, backgroundColor: '#F8FAFC', ...SHADOWS.soft },
-  bannerImage: { width: '100%', height: 380, borderRadius: 16 },
+  bannerCard: { width: '100%', marginBottom: 16, alignItems: 'center' },
+  bannerImage: { width: '100%', height: 380 },
 
   heroSection: { borderRadius: 16, padding: 20, alignItems: 'center', marginBottom: 20 },
   heroTitle: { fontSize: 18, fontWeight: '800', color: '#1E293B', textAlign: 'center', marginBottom: 8 },

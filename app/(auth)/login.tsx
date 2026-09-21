@@ -9,6 +9,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import auth from '@react-native-firebase/auth';
 import { apiService } from '../../src/services/api';
 import { COLORS } from '../../src/theme/theme';
 
@@ -51,22 +52,14 @@ export default function LoginScreen() {
         return;
       }
 
-      // Trigger OTP send & approval check
+      // Trigger Firebase Phone Auth
+      let verificationId = '';
       try {
-        await apiService.sendOtp(data.mobile);
-      } catch (otpErr: any) {
-        const errData = otpErr.response?.data;
-        if (errData?.pendingApproval) {
-          if (errData.role === 'EXECUTIVE') {
-            router.replace('/(auth)/phlebotomist-pending');
-          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
-            router.replace('/(auth)/doctor-pending');
-          } else {
-            router.replace('/(auth)/partner-pending');
-          }
-          return;
-        }
-        setServerError(errData?.error || 'Failed to send verification code. Please try again.');
+        const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
+        verificationId = confirmation.verificationId || '';
+      } catch (firebaseErr: any) {
+        console.error('Firebase Auth Error:', firebaseErr);
+        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
         setIsLoading(false);
         return;
       }
@@ -74,10 +67,10 @@ export default function LoginScreen() {
       // Navigate to OTP Screen
       router.push({
         pathname: '/(auth)/otp',
-        params: { mobile: data.mobile },
+        params: { mobile: data.mobile, verificationId },
       });
     } catch (error: any) {
-      console.error('Check Mobile / Send OTP Error:', error);
+      console.error('Check Mobile Error:', error);
       const errorMsg = error.response?.data?.error || 'Failed to verify mobile number. Please try again.';
       setServerError(errorMsg);
     } finally {
@@ -122,7 +115,7 @@ export default function LoginScreen() {
                   placeholder="Enter 10 digit number"
                   placeholderTextColor="#94A3B8"
                   value={value}
-                  onChangeText={(val) => {
+                  onChangeText={(val: string) => {
                     onChange(val);
                     if (serverError) setServerError(null);
                     if (isUnregistered) setIsUnregistered(false);

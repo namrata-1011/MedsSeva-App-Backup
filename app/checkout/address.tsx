@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, TextInput, FlatList } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { showError, showInfo } from '../../src/store/toastStore';
 const notifyError = showError as any;
 const notifyInfo = showInfo as any;
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
+import { PremiumBottomSheet } from '../../src/components/PremiumBottomSheet';
 import { useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,6 +31,8 @@ export default function AddressScreen() {
   const collectionMode = useSelector((state: RootState) => state.booking.collectionMode);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isBranchSheetOpen, setBranchSheetOpen] = useState(false);
+  const [branchSearch, setBranchSearch] = useState('');
 
   const { data: branches = [], isLoading: branchesLoading } = useQuery({
     queryKey: ['branches'],
@@ -287,33 +290,22 @@ export default function AddressScreen() {
                 <Text style={styles.emptyText}>No branches available.</Text>
               </View>
             ) : (
-              branches.map((branch: any) => (
-                <TouchableOpacity
-                  key={branch.id}
-                  style={[styles.addressCard, selectedBranchId === branch.id && styles.addressCardSelected]}
-                  onPress={() => setSelectedBranchId(branch.id)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.addressHeaderRow}>
-                    <View style={styles.leftHeaderCol}>
-                      <MaterialCommunityIcons name="hospital-building" size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
-                      <Text style={styles.nameText}>{branch.name}</Text>
-                    </View>
-                    <View style={styles.radioContainer}>
-                      {selectedBranchId === branch.id
-                        ? <MaterialCommunityIcons name="radiobox-marked" size={22} color={COLORS.primary} />
-                        : <MaterialCommunityIcons name="radiobox-blank" size={22} color="#CBD5E1" />}
-                    </View>
+              <TouchableOpacity 
+                style={styles.dropdownBtn}
+                onPress={() => setBranchSheetOpen(true)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.dropdownContent}>
+                  <MaterialCommunityIcons name="hospital-building" size={24} color={activeBranch ? COLORS.primary : '#94A3B8'} style={{ marginRight: 12 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.dropdownLabel}>Select your branch</Text>
+                    {activeBranch && (
+                      <Text style={styles.dropdownValue}>{activeBranch.name}</Text>
+                    )}
                   </View>
-                  <Text style={styles.addressText}>{branch.line1}, {branch.city}, {branch.state} - {branch.pincode}</Text>
-                  {branch.hours && <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-  <MaterialCommunityIcons name="clock-outline" size={14} color={COLORS.primary} />
-  <Text style={[styles.phoneText, { color: COLORS.primary }]}>
-    {branch.hours}
-  </Text>
-</View>}
-                </TouchableOpacity>
-              ))
+                  <MaterialCommunityIcons name="chevron-down" size={24} color="#64748B" />
+                </View>
+              </TouchableOpacity>
             )}
           </>
         ) : (
@@ -397,6 +389,71 @@ export default function AddressScreen() {
         )}
 
   </ScreenWrapper>
+
+      {/* Branch Selection Bottom Sheet */}
+      <PremiumBottomSheet visible={isBranchSheetOpen} onClose={() => setBranchSheetOpen(false)}>
+        <View style={{ flex: 1, paddingHorizontal: 24, paddingBottom: 20 }}>
+          <Text style={styles.sheetTitle}>Select Branch</Text>
+          <View style={styles.searchBar}>
+            <MaterialCommunityIcons name="magnify" size={20} color="#64748B" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search branches..."
+              placeholderTextColor="#94A3B8"
+              value={branchSearch}
+              onChangeText={setBranchSearch}
+            />
+            {branchSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setBranchSearch('')}>
+                <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <FlatList
+            data={branches.filter((b: any) => 
+              b.name.toLowerCase().includes(branchSearch.toLowerCase()) || 
+              b.city.toLowerCase().includes(branchSearch.toLowerCase())
+            )}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.branchItem, selectedBranchId === item.id && styles.branchItemSelected]}
+                onPress={() => {
+                  setSelectedBranchId(item.id);
+                  setBranchSheetOpen(false);
+                  setBranchSearch('');
+                }}
+              >
+                <MaterialCommunityIcons 
+                  name="hospital-building" 
+                  size={20} 
+                  color={selectedBranchId === item.id ? COLORS.primary : "#64748B"} 
+                  style={{ marginRight: 12 }} 
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.branchName, selectedBranchId === item.id && styles.branchNameSelected]}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.branchAddress} numberOfLines={1}>
+                    {item.line1}, {item.city}
+                  </Text>
+                </View>
+                {selectedBranchId === item.id && (
+                  <MaterialCommunityIcons name="check-circle" size={22} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>No branches found</Text>
+              </View>
+            }
+          />
+        </View>
+      </PremiumBottomSheet>
+
     </View>
   );
 }
@@ -593,5 +650,75 @@ emptySub: {
     ...TYPOGRAPHY.subtitle,
     color: COLORS.textLight,
     fontWeight: 'bold',
+  },
+  dropdownBtn: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    ...SHADOWS.soft,
+  },
+  dropdownContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dropdownLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 2,
+  },
+  dropdownValue: {
+    fontSize: 15,
+    color: COLORS.textDark,
+    fontWeight: 'bold',
+  },
+  sheetTitle: {
+    ...TYPOGRAPHY.h2,
+    color: COLORS.textDark,
+    marginBottom: 16,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 46,
+    marginBottom: 16,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 15,
+    color: COLORS.textDark,
+  },
+  branchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  branchItemSelected: {
+    backgroundColor: 'rgba(0, 128, 128, 0.03)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderBottomWidth: 0,
+    marginBottom: 4,
+  },
+  branchName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: COLORS.textDark,
+  },
+  branchNameSelected: {
+    color: COLORS.primary,
+  },
+  branchAddress: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
   }
 });

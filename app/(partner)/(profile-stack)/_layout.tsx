@@ -7,7 +7,7 @@ export default function ProfileStackLayout() {
   const router = useRouter();
 
   const backButton = () => (
-    <TouchableOpacity onPress={() => router.navigate('/(partner)/profile')} style={{ marginLeft: 4 }}>
+    <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4 }}>
       <MaterialCommunityIcons name="arrow-left" size={24} color={COLORS.primary} />
     </TouchableOpacity>
   );

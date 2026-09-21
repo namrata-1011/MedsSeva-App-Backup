@@ -125,7 +125,7 @@ export default function SupportScreen() {
               </View>
               <View style={[styles.contactRow, { marginTop: 12 }]}>
                 <MaterialCommunityIcons name="phone-outline" size={20} color={COLORS.textSecondary} />
-                <Text style={styles.contactText}>+91-80000-00000</Text>
+                <Text style={styles.contactText}>+91 84480 30936</Text>
               </View>
               <View style={[styles.contactRow, { marginTop: 12 }]}>
                 <MaterialCommunityIcons name="map-marker-outline" size={20} color={COLORS.textSecondary} />

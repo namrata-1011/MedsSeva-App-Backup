@@ -37,15 +37,25 @@ export default function PhlebotomistHistoryScreen() {
   const isFreelancer = !isEmployee;
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [commissionRate, setCommissionRate] = useState(30.0);
+  const [payoutFreq, setPayoutFreq] = useState('WEEKLY');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
-      const [historyRes, bookingsRes] = await Promise.all([
+      const [historyRes, bookingsRes, earningsRes] = await Promise.all([
         apiService.getPartnerHistory().catch(() => []),
         apiService.getPartnerBookings().catch(() => []),
+        isFreelancer ? apiService.getPartnerEarnings().catch(() => null) : null,
       ]);
+
+      if (earningsRes) {
+        setWalletBalance(earningsRes.walletBalance || 0);
+        setCommissionRate(earningsRes.commissionRate || 30.0);
+        if (earningsRes.payoutFrequency) setPayoutFreq(earningsRes.payoutFrequency);
+      }
 
       const historyList = Array.isArray(historyRes) ? historyRes : [];
       const bookingsList = Array.isArray(bookingsRes) ? bookingsRes : [];
@@ -93,7 +103,7 @@ export default function PhlebotomistHistoryScreen() {
 
   const totalDelivered = history.length;
   const totalBilled = history.reduce((sum, h) => sum + (h.totalPaid || 0), 0);
-  const totalEarnedCommission = Math.round(totalBilled * 0.30);
+  const totalEarnedCommission = walletBalance;
 
   return (
     <ScreenWrapper scrollable={false} backgroundColor="#F8FAFC">
@@ -129,7 +139,7 @@ export default function PhlebotomistHistoryScreen() {
               </View>
               <View style={styles.rateBadge}>
                 <Text style={styles.rateBadgeText}>
-                  {isFreelancer ? '30% Rate' : (user?.branchName || 'Branch Duty')}
+                  {isFreelancer ? `${commissionRate}% Rate` : (user?.branchName || 'Branch Duty')}
                 </Text>
               </View>
             </View>
@@ -148,7 +158,9 @@ export default function PhlebotomistHistoryScreen() {
                     <Text style={styles.heroStatLbl}>Total Test Volume</Text>
                   </View>
                   <View style={styles.heroStatItem}>
-                    <Text style={styles.heroStatVal}>Weekly</Text>
+                    <Text style={styles.heroStatVal}>
+                      {payoutFreq === 'DAILY' ? 'Daily' : payoutFreq === 'WEEKLY' ? 'Weekly' : 'Monthly'}
+                    </Text>
                     <Text style={styles.heroStatLbl}>Payout Cycle</Text>
                   </View>
                 </>

@@ -170,7 +170,14 @@ useEffect(() => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {onClose && (
+            <TouchableOpacity onPress={onClose} style={{ marginRight: 12 }}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#0F172A" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerTitle}>Notifications</Text>
+        </View>
         <View style={styles.headerRight}>
           {unreadCount > 0 && (
             <TouchableOpacity onPress={handleMarkAllRead} style={styles.markAllBtn}>
@@ -200,7 +207,7 @@ useEffect(() => {
       ) : (
         <FlatList
           data={notifications}
-          keyExtractor={item => item.id}
+          keyExtractor={(item: NotificationItem) => item.id}
           renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
           onEndReached={loadMore}

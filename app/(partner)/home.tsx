@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  RefreshControl, StatusBar, Switch, ActivityIndicator
+  RefreshControl, StatusBar, Switch, ActivityIndicator, Platform
 } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { useNotificationPermission } from '../../src/hooks/useNotificationPermission';
 import { NotificationCenter } from '../../src/components/NotificationCenter';
 import { Modal } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 
 interface BookingRequest {
@@ -37,6 +38,7 @@ interface Stats {
   accepted: number;
   completedToday: number;
   completedPercent: number;
+  trendPercentage?: number;
 }
 
 export default function PartnerHomeScreen() {
@@ -53,11 +55,16 @@ const [declineTarget, setDeclineTarget] = useState<string | null>(null);
   const [showNotifCenter, setShowNotifCenter] = useState(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showProfilePhoto, setShowProfilePhoto] = useState(false);
+
   const loadData = useCallback(async () => {
     try {
-   const [bookingsRes, statsRes] = await Promise.all([
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const [bookingsRes, statsRes] = await Promise.all([
         apiService.getPartnerNotifications(),
-        apiService.getPartnerStats(),
+        apiService.getPartnerStats(dateStr),
       ]);
       setRequests(bookingsRes);
       setStats(statsRes);
@@ -67,7 +74,7 @@ const [declineTarget, setDeclineTarget] = useState<string | null>(null);
       setIsLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedDate]);
 
 useEffect(() => { loadData(); }, [loadData]);
 
@@ -165,19 +172,21 @@ const handleDecline = (bookingId: string) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-      <View style={styles.avatarCircle}>
-            {user?.avatarUrl ? (
-              <Image
-                source={{ uri: user.avatarUrl }}
-                style={styles.avatarImage}
-                contentFit="cover"
-               cachePolicy="none"
-                transition={200}
-              />
-            ) : (
-              <MaterialCommunityIcons name="account" size={22} color={COLORS.primary} />
-            )}
-          </View>
+          <TouchableOpacity onPress={() => setShowProfilePhoto(true)}>
+            <View style={styles.avatarCircle}>
+              {user?.avatarUrl ? (
+                <Image
+                  source={{ uri: user.avatarUrl }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                 cachePolicy="none"
+                  transition={200}
+                />
+              ) : (
+                <MaterialCommunityIcons name="account" size={22} color={COLORS.primary} />
+              )}
+            </View>
+          </TouchableOpacity>
           <View>
             <Text style={styles.helloText}>Hello, Partner</Text>
             <Text style={styles.partnerName}>{user?.name || 'Partner'}</Text>
@@ -213,11 +222,26 @@ const handleDecline = (bookingId: string) => {
         <View style={styles.statsCard}>
           <View style={styles.statsTopRow}>
             <View style={styles.todayJobsBlock}>
-              <MaterialCommunityIcons name="calendar-today" size={24} color={COLORS.primary} />
-              <Text style={styles.statsLabel}>Today's Jobs</Text>
+              <TouchableOpacity onPress={() => setShowDatePicker(true)} style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                <MaterialCommunityIcons name="calendar-today" size={24} color={COLORS.primary} />
+                <Text style={{fontSize: 12, color: COLORS.primary, fontWeight: '700'}}>
+                  {selectedDate.toDateString() === new Date().toDateString() ? "Today" : selectedDate.toLocaleDateString()}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+              
+              <Text style={styles.statsLabel}>Total Jobs</Text>
               <Text style={styles.todayCount}>{stats.todayJobs}</Text>
             </View>
-            <Text style={styles.vsText}>+12% vs yesterday</Text>
+            {stats.trendPercentage !== undefined && (
+              <Text style={[
+                styles.vsText, 
+                stats.trendPercentage < 0 ? { color: '#EF4444', backgroundColor: '#FEE2E2' } : 
+                stats.trendPercentage === 0 ? { color: '#64748B', backgroundColor: '#F1F5F9' } : {}
+              ]}>
+                {stats.trendPercentage > 0 ? '+' : ''}{stats.trendPercentage}% vs yesterday
+              </Text>
+            )}
           </View>
           <View style={styles.statsMiniRow}>
             <View style={styles.miniStat}>
@@ -303,6 +327,39 @@ const handleDecline = (bookingId: string) => {
           <Text style={styles.tipText}>Keep your sample collection kit sanitized before every visit to maintain high hygiene ratings.</Text>
 </View>
       </ScreenWrapper>
+      
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event, date) => {
+            setShowDatePicker(Platform.OS === 'ios');
+            if (date) setSelectedDate(date);
+          }}
+        />
+      )}
+      
+      {/* Profile Photo Modal */}
+      <Modal visible={showProfilePhoto} transparent animationType="fade" onRequestClose={() => setShowProfilePhoto(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity 
+            style={{ position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 }}
+            onPress={() => setShowProfilePhoto(false)}
+          >
+            <MaterialCommunityIcons name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+          {user?.avatarUrl ? (
+            <Image
+              source={{ uri: user.avatarUrl }}
+              style={{ width: '90%', height: '60%', borderRadius: 16 }}
+              contentFit="contain"
+            />
+          ) : (
+            <MaterialCommunityIcons name="account" size={150} color="#fff" />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }

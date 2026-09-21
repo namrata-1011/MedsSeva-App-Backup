@@ -13,9 +13,9 @@ import { useDispatch } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../../src/utils/tokenStorage';
-import { showError } from '../../src/store/toastStore';
 import { loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
+import auth from '@react-native-firebase/auth';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 
 import { COLORS } from '../../src/theme/theme';
@@ -27,12 +27,6 @@ const registerSchema = yup.object().shape({
   mobile: yup.string()
     .required('Mobile number is required')
     .matches(/^[0-9]{10}$/, 'Mobile number must be exactly 10 digits'),
-  password: yup.string()
-    .required('Password is required')
-    .min(6, 'Password must be at least 6 characters'),
-  confirmPassword: yup.string()
-    .required('Please confirm your password')
-    .oneOf([yup.ref('password')], 'Passwords do not match'),
   referralCode: yup.string().optional(),
 });
 
@@ -68,8 +62,6 @@ export default function RegisterScreen() {
       name: prefilledName,
       email: '',
       mobile: prefilledMobile,
-      password: '',
-      confirmPassword: '',
       referralCode: '',
     },
   });
@@ -92,14 +84,24 @@ export default function RegisterScreen() {
         name: data.name,
         email: data.email,
         mobile: data.mobile,
-        password: data.password,
         referralCode: data.referralCode?.trim() || undefined,
       });
 
-      if (response.requiresEmailVerification) {
-        router.replace({
-          pathname: '/(auth)/verify-email',
-          params: { email: response.email, mobile: data.mobile },
+      if (response.requiresMobileVerification || response.requiresEmailVerification) {
+        let verificationId = '';
+        try {
+          const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
+          verificationId = confirmation.verificationId || '';
+        } catch (firebaseErr: any) {
+          console.error('Firebase Auth Error in Register:', firebaseErr);
+          setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+
+        router.push({
+          pathname: '/(auth)/otp',
+          params: { mobile: data.mobile, verificationId },
         });
         return;
       }
@@ -134,10 +136,20 @@ export default function RegisterScreen() {
           router.replace('/(tabs)');
         } catch (loginError: any) {
           const loginErrData = loginError.response?.data;
-          if (loginErrData?.requiresEmailVerification) {
-            router.replace({
-              pathname: '/(auth)/verify-email',
-              params: { email: loginErrData.email || data.email, mobile: data.mobile },
+          if (loginErrData?.requiresEmailVerification || loginErrData?.requiresMobileVerification) {
+            let verificationId = '';
+            try {
+              const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
+              verificationId = confirmation.verificationId || '';
+            } catch (firebaseErr: any) {
+              console.error('Firebase Auth Error in Login Fallback:', firebaseErr);
+              setServerError(firebaseErr.message || 'Failed to send verification code via Firebase.');
+              setIsLoading(false);
+              return;
+            }
+            router.push({
+              pathname: '/(auth)/otp',
+              params: { mobile: data.mobile, verificationId },
             });
             return;
           }
@@ -148,10 +160,19 @@ export default function RegisterScreen() {
             setShowAccountSheet(true);
           }
         }
-   } else if (error.response?.data?.requiresEmailVerification) {
-        router.replace({
-          pathname: '/(auth)/verify-email',
-          params: { email: data.email, mobile: data.mobile },
+   } else if (error.response?.data?.requiresEmailVerification || error.response?.data?.requiresMobileVerification) {
+        let verificationId = '';
+        try {
+          const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
+          verificationId = confirmation.verificationId || '';
+        } catch (firebaseErr: any) {
+          setServerError(firebaseErr.message || 'Failed to send verification code via Firebase.');
+          setIsLoading(false);
+          return;
+        }
+        router.push({
+          pathname: '/(auth)/otp',
+          params: { mobile: data.mobile, verificationId },
         });
   } else {
         setServerError(errorMsg || 'Failed to register. Please try again.');
@@ -239,55 +260,7 @@ return (
           />
           {errors.mobile && <Text style={styles.errorText}>{errors.mobile.message}</Text>}
 
-          <Text style={styles.fieldLabel}>Password</Text>
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, value } }) => (
-              <View style={[styles.inputWrap, errors.password && styles.inputWrapError]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your password"
-                  placeholderTextColor="#94A3B8"
-                  secureTextEntry={!showPassword}
-                  value={value}
-                  onChangeText={(text) => { onChange(text); setPasswordValue(text); }}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <MaterialCommunityIcons name={showPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          <View style={styles.strengthRow}>
-            {[1, 2, 3, 4].map((i) => (
-              <View key={i} style={[styles.strengthBar, { backgroundColor: strengthScore >= i ? strengthColors[strengthScore] : '#E2E8F0' }]} />
-            ))}
-          </View>
-          <Text style={styles.strengthLabel}>{passwordValue ? (strengthScore > 0 ? strengthLabels[strengthScore] + ' password' : 'Enter a strong password') : 'Enter a strong password'}</Text>
-          {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
-          <Text style={styles.fieldLabel}>Confirm Password</Text>
-          <Controller
-            control={control}
-            name="confirmPassword"
-            render={({ field: { onChange, value } }) => (
-              <View style={[styles.inputWrap, errors.confirmPassword && styles.inputWrapError]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Re-enter your password"
-                  placeholderTextColor="#94A3B8"
-                  secureTextEntry={!showConfirmPassword}
-                  value={value}
-                  onChangeText={onChange}
-                />
-                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  <MaterialCommunityIcons name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} size={20} color="#94A3B8" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>}
           <Text style={styles.fieldLabel}>
             Referral Code <Text style={styles.optionalTag}>(Optional)</Text>
           </Text>
@@ -301,7 +274,7 @@ return (
                   placeholder="Enter referral code (e.g. NAM5D93H)"
                   placeholderTextColor="#94A3B8"
                   value={value}
-                  onChangeText={(text) => onChange(text.toUpperCase())}
+                  onChangeText={(text: string) => onChange(text.toUpperCase())}
                   autoCapitalize="characters"
                 />
                 {value ? (

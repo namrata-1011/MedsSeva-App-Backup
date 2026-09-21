@@ -1,6 +1,6 @@
 /* eslint-disable */
 import React, { useState ,useEffect} from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
 import * as Linking from 'expo-linking';
 import * as Sharing from 'expo-sharing';
 import { apiService } from '../../src/services/api';
+import api from '../../src/services/api';
 import { RootState } from '../../src/store';
 
 export default function ReportsScreen() {
@@ -177,12 +178,45 @@ useEffect(() => {
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.actionButtonSecondary}
-              onPress={() => {
-                const invoiceUrl = item.booking?.payment?.invoiceUrl;
-                if (invoiceUrl) {
-                  Linking.openURL(invoiceUrl);
-                } else if (item.booking?.id) {
-                  Linking.openURL(`http://localhost:5000/api/payments/invoice/${item.booking.id}/pdf`);
+              onPress={async () => {
+                try {
+                  const invoiceUrl = item.booking?.payment?.invoiceUrl;
+                  let finalUrl = invoiceUrl;
+                  if (!finalUrl && item.booking?.id) {
+                    const baseUrl = api.defaults.baseURL || 'http://localhost:5000/api';
+                    finalUrl = `${baseUrl}/payments/invoice/${item.booking.id}/pdf`;
+                  }
+                  if (finalUrl) {
+                    const fileName = `MedSeva-Invoice-${item.booking?.id || Date.now()}.pdf`;
+                    
+                    if (Platform.OS === 'android') {
+                      const downloadPath = `${ReactNativeBlobUtil.fs.dirs.DownloadDir}/${fileName}`;
+                      await ReactNativeBlobUtil.config({
+                        path: downloadPath,
+                        addAndroidDownloads: {
+                          useDownloadManager: true,
+                          notification: true,
+                          title: fileName,
+                          description: 'MedsSeva Invoice PDF',
+                          mime: 'application/pdf',
+                          path: downloadPath,
+                        },
+                      }).fetch('GET', finalUrl);
+                      
+                      Alert.alert('Success', 'Invoice downloaded to your Notifications and Downloads folder.');
+                      setTimeout(() => {
+                        ReactNativeBlobUtil.android.actionViewIntent(downloadPath, 'application/pdf').catch(() => {});
+                      }, 1000);
+                    } else {
+                      const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${fileName}`;
+                      const res = await ReactNativeBlobUtil.config({ path: tempPath, fileCache: true }).fetch('GET', finalUrl);
+                      await ReactNativeBlobUtil.ios.previewDocument(res.path());
+                    }
+                  } else {
+                    Alert.alert('Not Available', 'Invoice is not available for this report.');
+                  }
+                } catch (err) {
+                  Alert.alert('Error', 'Failed to download and open invoice.');
                 }
               }}
               activeOpacity={0.7}
@@ -249,7 +283,7 @@ useEffect(() => {
             activeTab === 'abnormal' ? r.abnormal :
             r.status.toLowerCase() === activeTab
           )}
-          keyExtractor={item => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderReportCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

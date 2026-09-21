@@ -124,11 +124,18 @@ const handleContinue = () => {
 
           {/* Lab mode: show selected branch info */}
           {collectionMode === 'lab' && selectedBranchName && (
-            <View style={[styles.slotStatusCard, { borderColor: COLORS.primary + '40', backgroundColor: COLORS.primary + '08', marginBottom: 16 }]}>
-              <MaterialCommunityIcons name="hospital-building" size={20} color={COLORS.primary} />
-              <Text style={[styles.slotStatusText, { color: COLORS.primary, fontWeight: '600' }]}>
-                {selectedBranchName}
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20, marginTop: 4 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E0F2F1', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                <MaterialCommunityIcons name="hospital-building" size={18} color={COLORS.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, color: '#64748B', textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 }}>
+                  Selected Branch
+                </Text>
+                <Text style={{ fontSize: 15, color: COLORS.textDark, fontWeight: 'bold' }}>
+                  {selectedBranchName}
+                </Text>
+              </View>
             </View>
           )}
           
