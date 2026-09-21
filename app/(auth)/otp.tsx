@@ -13,6 +13,7 @@ import { COLORS } from '../../src/theme/theme';
 import { loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
 import auth from '@react-native-firebase/auth';
+import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 
 const { width } = Dimensions.get('window');
 const PRIMARY = COLORS.primary;
@@ -76,15 +77,40 @@ export default function OTPScreen() {
         setIsSending(false);
         return;
       }
+      // Trigger backend approval check & rate limit
+      try {
+        await apiService.sendOtp(mobileNumber);
+      } catch (otpErr: any) {
+        const errData = otpErr.response?.data;
+        if (errData?.pendingApproval) {
+          if (errData.role === 'EXECUTIVE') {
+            router.replace('/(auth)/phlebotomist-pending');
+          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
+            router.replace('/(auth)/doctor-pending');
+          } else {
+            router.replace('/(auth)/partner-pending');
+          }
+          return;
+        }
+        setServerError(errData?.error || 'Failed to verify account. Please try again.');
+        setIsSending(false);
+        return;
+      }
+
+      // Send Firebase Phone Authentication OTP SMS
       try {
         const confirmation = await auth().signInWithPhoneNumber(`+91${mobileNumber}`);
         setVerificationId(confirmation.verificationId || '');
       } catch (firebaseErr: any) {
         console.error('Firebase Auth Error:', firebaseErr);
-        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
-        setIsSending(false);
-        return;
+        const fbResult = await firebaseAuthService.sendPhoneOtp(mobileNumber);
+        if (!fbResult.success) {
+          setServerError(firebaseErr?.message || fbResult.error || 'Failed to send verification code via Firebase. Please try again.');
+          setIsSending(false);
+          return;
+        }
       }
+
       setStep('otp');
       setOtp(['', '', '', '', '', '']);
     } catch {
@@ -153,20 +179,24 @@ export default function OTPScreen() {
 
     setIsLoading(true);
     try {
-      if (!verificationId) throw new Error("No verification ID. Please request OTP again.");
-      const credential = auth.PhoneAuthProvider.credential(verificationId, otpValue);
-      const userCredential = await auth().signInWithCredential(credential);
-      const firebaseIdToken = await userCredential.user.getIdToken();
-      console.log('Firebase ID Token:', firebaseIdToken);
+      let firebaseIdToken = '';
 
-      // Temporarily blocking backend login logic because backend does not support Firebase Token Verification yet.
-      setOtpError('Firebase Authentication Successful! (Backend login bypassed because backend needs update to verify Firebase tokens)');
-      
-      /*
-      const loginResult = await apiService.loginWithOtp(mobileNumber, otpValue);
-      */
-      // Un-comment below when backend is updated
-      /*
+      if (verificationId) {
+        const credential = auth.PhoneAuthProvider.credential(verificationId, otpValue);
+        const userCredential = await auth().signInWithCredential(credential);
+        firebaseIdToken = await userCredential.user.getIdToken(true);
+      } else {
+        const fbVerify = await firebaseAuthService.verifyOtpCode(otpValue);
+        if (!fbVerify.success || !fbVerify.idToken) {
+          setOtpError(fbVerify.error || 'Invalid OTP code. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+        firebaseIdToken = fbVerify.idToken;
+      }
+
+      // Exchange verified Firebase ID Token for MedsSeva JWT session
+      const loginResult = await apiService.loginWithFirebaseToken(firebaseIdToken);
       const userObj = {
         id: loginResult.user.id,
         name: loginResult.user.name,
@@ -325,7 +355,7 @@ export default function OTPScreen() {
             <>
               <Text style={styles.title}>Verify Mobile Number</Text>
               <Text style={styles.subtitleOtp}>
-                Enter the 4-digit code sent to{'\n'}
+                Enter the 6-digit code sent to{'\n'}
                 <Text style={styles.maskedNum}>{maskedNumber} </Text>
                 <Text
                   style={styles.changeLink}
@@ -341,8 +371,6 @@ export default function OTPScreen() {
                   Change
                 </Text>
               </Text>
-
-
 
               <View style={styles.otpRow}>
                 {otp.map((digit, index) => (
@@ -385,7 +413,7 @@ export default function OTPScreen() {
             </>
           )}
         </View>
- </ScreenWrapper>
+      </ScreenWrapper>
     </View>
   );
 }
@@ -419,7 +447,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   fieldLabel: { fontSize: 13, fontWeight: '700', color: '#334155', marginBottom: 8 },
-mobileInputWrap: {
+  mobileInputWrap: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC',
     borderRadius: 14, borderWidth: 1.5, borderColor: '#E2E8F0',
     height: 56, paddingHorizontal: 14, marginBottom: 12,
@@ -427,10 +455,10 @@ mobileInputWrap: {
   countryCode: { borderRightWidth: 1.5, borderColor: '#E2E8F0', paddingRight: 12, marginRight: 12 },
   countryCodeText: { fontSize: 15, fontWeight: '700', color: '#475569' },
   mobileInput: { flex: 1, fontSize: 15, color: '#0F172A', fontWeight: '600', letterSpacing: 1 },
-  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 4, gap: 8 },
+  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 2 },
   otpBox: {
-    flex: 1, height: 60, borderRadius: 14,
-    backgroundColor: '#F1F5F9', textAlign: 'center', fontSize: 24,
+    width: (width - 40 - 48 - 40) / 6, height: 54, borderRadius: 12,
+    backgroundColor: '#F1F5F9', textAlign: 'center', fontSize: 20,
     fontWeight: '700', color: '#0F172A', elevation: 2,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4,
   },

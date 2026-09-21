@@ -11,6 +11,7 @@ import * as yup from 'yup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import auth from '@react-native-firebase/auth';
 import { apiService } from '../../src/services/api';
+import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 import { COLORS } from '../../src/theme/theme';
 
 const PRIMARY = COLORS.primary;
@@ -48,6 +49,26 @@ export default function LoginScreen() {
       if (!checkRes?.exists) {
         setIsUnregistered(true);
         setServerError('This mobile number is not registered. Please register first.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Trigger backend approval check & rate limit
+      try {
+        await apiService.sendOtp(data.mobile);
+      } catch (otpErr: any) {
+        const errData = otpErr.response?.data;
+        if (errData?.pendingApproval) {
+          if (errData.role === 'EXECUTIVE') {
+            router.replace('/(auth)/phlebotomist-pending');
+          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
+            router.replace('/(auth)/doctor-pending');
+          } else {
+            router.replace('/(auth)/partner-pending');
+          }
+          return;
+        }
+        setServerError(errData?.error || 'Failed to verify account. Please try again.');
         setIsLoading(false);
         return;
       }
