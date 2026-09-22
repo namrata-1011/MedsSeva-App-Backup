@@ -11,6 +11,7 @@ import * as yup from 'yup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import auth from '@react-native-firebase/auth';
 import { apiService } from '../../src/services/api';
+import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 import { COLORS } from '../../src/theme/theme';
 
 const PRIMARY = COLORS.primary;
@@ -52,17 +53,42 @@ export default function LoginScreen() {
         return;
       }
 
-      // Send OTP
+      // Trigger backend approval check & rate limit
       try {
         await apiService.sendOtp(data.mobile);
-      } catch (sendErr: any) {
-        setServerError(sendErr.response?.data?.error || 'Failed to send OTP.');
+      } catch (otpErr: any) {
+        const errData = otpErr.response?.data;
+        if (errData?.pendingApproval) {
+          if (errData.role === 'EXECUTIVE') {
+            router.replace('/(auth)/phlebotomist-pending');
+          } else if (errData.role === 'DOCTOR' || errData.role === 'PATHOLOGIST') {
+            router.replace('/(auth)/doctor-pending');
+          } else {
+            router.replace('/(auth)/partner-pending');
+          }
+          return;
+        }
+        setServerError(errData?.error || 'Failed to verify account. Please try again.');
         setIsLoading(false);
         return;
       }
+
+      // Trigger Firebase Phone Auth
+      let verificationId = '';
+      try {
+        const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
+        verificationId = confirmation.verificationId || '';
+      } catch (firebaseErr: any) {
+        console.error('Firebase Auth Error:', firebaseErr);
+        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Navigate to OTP Screen
       router.push({
         pathname: '/(auth)/otp',
-        params: { mobile: data.mobile },
+        params: { mobile: data.mobile, verificationId },
       });
     } catch (error: any) {
       console.error('Check Mobile Error:', error);
