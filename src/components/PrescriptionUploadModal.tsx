@@ -23,6 +23,7 @@ import { RootState } from '../store';
 import { apiService } from '../services/api';
 import { COLORS, TYPOGRAPHY, SHADOWS } from '../theme/theme';
 import { showSuccess, showError } from '../store/toastStore';
+import { ensurePhotosPermission } from '../utils/imagePicker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -115,8 +116,8 @@ export function PrescriptionUploadModal({ visible, onClose, onUploadSuccess }: P
   };
 
   const handleGallery = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    const hasPermission = await ensurePhotosPermission();
+    if (!hasPermission) {
       showError('Gallery access is needed to pick prescriptions.');
       return;
     }

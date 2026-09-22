@@ -19,6 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { Modal, Pressable } from 'react-native';
 import { apiService } from '../../src/services/api';
+import { ensurePhotosPermission } from '../../src/utils/imagePicker';
 
 
 export default function PhlebotomistProfileScreen() {
@@ -73,8 +74,8 @@ export default function PhlebotomistProfileScreen() {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       await openCamera(status);
     } else {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+      const hasPermission = await ensurePhotosPermission();
+      if (!hasPermission) {
         Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
         return;
       }

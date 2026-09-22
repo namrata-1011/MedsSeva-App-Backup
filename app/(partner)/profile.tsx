@@ -22,6 +22,7 @@ import { RootState, AppDispatch } from '../../src/store';
 import { apiService } from '../../src/services/api';
 import { performLogout } from '../../src/utils/logout';
 import { updateProfileAndPersist } from '../../src/store/slices/authSlice';
+import { ensurePhotosPermission } from '../../src/utils/imagePicker';
 import { SHADOWS, COLORS } from '../../src/theme/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
@@ -67,8 +68,8 @@ export default function PartnerProfileScreen() {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       await openCamera(status);
     } else {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+      const hasPermission = await ensurePhotosPermission();
+      if (!hasPermission) {
         Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
         return;
       }

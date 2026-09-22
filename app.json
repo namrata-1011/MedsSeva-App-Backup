@@ -2,15 +2,15 @@
   "expo": {
     "name": "MedsSeva",
     "slug": "medsseva-app",
-    "version": "1.0.1",
-    "newArchEnabled": false,
+    "version": "1.0.5",
+    "newArchEnabled": true,
     "orientation": "portrait",
     "icon": "./assets/images/adaptive-icon.png",
     "scheme": "medssevaapp",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kanha0415.medssevaapp",
+      "bundleIdentifier": "com.medssevaglobal.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -20,7 +20,7 @@
       "usesCleartextTraffic": true,
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+          "apiKey": ""
         }
       },
       "softwareKeyboardLayoutMode": "pan",
@@ -33,11 +33,6 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.POST_NOTIFICATIONS",
@@ -45,12 +40,20 @@
         "android.permission.VIBRATE",
         "android.permission.USE_FINGERPRINT",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.RECORD_AUDIO",
+        "com.google.android.gms.permission.AD_ID"
       ]
     },
     "web": {
@@ -71,6 +74,7 @@
         }
       ],
       "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "@react-native-google-signin/google-signin",
       "./plugins/fixFirebaseMessagingManifest.js",
       [
@@ -83,9 +87,11 @@
         "expo-image-picker",
         {
           "photosPermission": "MedSeva needs access to your photos to upload prescriptions.",
-          "cameraPermission": "MedSeva needs access to your camera to capture prescriptions."
+          "cameraPermission": "MedSeva needs access to your camera to capture prescriptions.",
+          "microphonePermission": false
         }
       ],
+      "./plugins/stripMediaPermissions.js",
       [
         "expo-location",
         {
@@ -163,24 +169,16 @@
         }
       ],
       [
-        "expo-media-library",
-        {
-          "photosPermission": "MedSeva needs access to your media library to save reports and images.",
-          "savePhotosPermission": "MedSeva needs permission to save files to your device.",
-          "isAccessMediaLocationEnabled": true
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "minSdkVersion": 24,
-            "newArchEnabled": false
+            "newArchEnabled": true
           },
           "ios": {
-            "newArchEnabled": false
+            "newArchEnabled": true
           }
         }
       ],
@@ -205,9 +203,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f997ffd0-65bf-438b-8b35-95f541c24259"
+        "projectId": "9eb743e2-0160-4fb7-9c54-9ff354c44563"
       }
     },
-    "owner": "namrata1011"
+    "owner": "developer04"
   }
 }

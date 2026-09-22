@@ -1,20 +1,22 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, AppState } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { View as RNView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSelector } from 'react-redux';
 import messaging from '@react-native-firebase/messaging';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { COLORS, TYPOGRAPHY } from '../../src/theme/theme';
 import { RootState } from '../../src/store';
 import { apiService } from '../../src/services/api';
 
-let MapView: any, Marker: any, Polyline: any;
-MapView = ({ children, style }: any) => <RNView style={style}><Text>Map Placeholder</Text>{children}</RNView>;
-Marker = ({ children }: any) => <RNView>{children}</RNView>;
-Polyline = () => <RNView />;
+const DEFAULT_REGION = {
+  latitude: 28.6139,
+  longitude: 77.2090,
+  latitudeDelta: 0.08,
+  longitudeDelta: 0.08,
+};
 
 const STATUS_STEPS = [
   { key: 'ACCEPTED', label: 'Booking Accepted', icon: 'calendar-check' },
@@ -173,7 +175,15 @@ useEffect(() => {
           <Text style={styles.webMapSubText}>Please use an iOS or Android device.</Text>
         </View>
       ) : (
-        <MapView style={styles.map} />
+        <MapView
+          style={styles.map}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={DEFAULT_REGION}
+          showsUserLocation
+          showsMyLocationButton={false}
+        >
+          <Marker coordinate={DEFAULT_REGION} title="MedsSeva" description="Live tracking map" />
+        </MapView>
       )}
 
       <View style={styles.bottomSheet}>

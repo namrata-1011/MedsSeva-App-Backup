@@ -13,6 +13,7 @@ import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showError, showInfo } from '../../src/store/toastStore';
 import { loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
+import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 
 export default function PartnerLoginScreen() {
   const router = useRouter();
@@ -50,10 +51,20 @@ export default function PartnerLoginScreen() {
         return;
       }
 
-      // 3. Navigate to OTP screen with expectedRole
+      const firebaseResult = await firebaseAuthService.sendPhoneOtp(cleanMobile);
+      if (!firebaseResult.success || !firebaseResult.verificationId) {
+        setServerError(firebaseResult.error || 'Failed to send Firebase OTP. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
       router.push({
         pathname: '/(auth)/otp',
-        params: { mobile: cleanMobile, expectedRole: 'PATHOLOGY_PARTNER' },
+        params: {
+          mobile: cleanMobile,
+          expectedRole: 'PATHOLOGY_PARTNER',
+          verificationId: firebaseResult.verificationId,
+        },
       });
     } catch (error: any) {
       console.error('Partner Login check error:', error);

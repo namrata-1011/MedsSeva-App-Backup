@@ -14,6 +14,7 @@ import { logout } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import * as ImagePicker from 'expo-image-picker';
+import { ensurePhotosPermission } from '../../src/utils/imagePicker';
 import { showSuccess, showError } from '../../src/store/toastStore';
 
 export default function DoctorProfileScreen() {
@@ -93,8 +94,8 @@ export default function DoctorProfileScreen() {
           text: 'Gallery',
           onPress: async () => {
             try {
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (status !== 'granted') {
+              const hasPermission = await ensurePhotosPermission();
+              if (!hasPermission) {
                 showError('Permission required to access gallery.');
                 return;
               }

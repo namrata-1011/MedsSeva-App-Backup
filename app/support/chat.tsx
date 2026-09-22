@@ -2,36 +2,21 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   FlatList, KeyboardAvoidingView, Platform, ScrollView,
-  ActivityIndicator, Keyboard, StatusBar
+  ActivityIndicator, StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { io, Socket } from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Socket } from 'socket.io-client';
 import { tokenStorage } from '../../src/utils/tokenStorage';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { apiService } from '../../src/services/api';
-
-const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL!.replace('/api', '');
-
-interface ChatMessage {
-  id: string;
-  conversationId: string;
-  senderType: 'USER' | 'BOT' | 'AGENT';
-  senderId: string;
-  text?: string;
-  isRead: boolean;
-  createdAt: string;
-  senderName?: string;
-}
-
-interface Conversation {
-  id: string;
-  status: 'AI_ACTIVE' | 'PENDING_HUMAN' | 'HUMAN_ACTIVE' | 'CLOSED';
-  messages: ChatMessage[];
-  assignedTo?: { user: { name: string } };
-}
+import {
+  ChatMessage,
+  Conversation,
+  createChatSocket,
+  normalizeMessages,
+} from '../../src/services/chatService';
 
 const SUGGESTION_CHIPS = [
   'CBC price?',
@@ -43,7 +28,9 @@ const SUGGESTION_CHIPS = [
 ];
 
 function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function SupportChatScreen() {
@@ -53,94 +40,132 @@ export default function SupportChatScreen() {
   const [inputText, setInputText] = useState('');
   const [isAgentTyping, setIsAgentTyping] = useState(false);
   const [agentTypingName, setAgentTypingName] = useState('');
-  const [loading, setLoading] = useState(false);
-const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [supportBannerVisible, setSupportBannerVisible] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const socketRef = useRef<Socket | null>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      } catch {
+        // FlatList may not be ready yet on first render.
+      }
+    }, 120);
   }, []);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, isAgentTyping, scrollToBottom]);
 
-  useEffect(() => {
-    initChat();
-    return () => {
-      socketRef.current?.disconnect();
-      socketRef.current = null;
-    };
+  const disconnectSocket = useCallback(() => {
+    socketRef.current?.removeAllListeners();
+    socketRef.current?.disconnect();
+    socketRef.current = null;
   }, []);
 
-  const initChat = async () => {
+  const initChat = useCallback(async () => {
     setLoading(true);
+    setErrorMessage(null);
+    setNeedsLogin(false);
+    disconnectSocket();
+
     try {
       const token = await tokenStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+        setNeedsLogin(true);
+        return;
+      }
 
-      const conv: Conversation & { messages: ChatMessage[] } = await apiService.getOrCreateConversation();
+      const conv = await apiService.getOrCreateConversation() as Conversation;
+      if (!conv?.id) {
+        throw new Error('Unable to start support chat.');
+      }
+
       setConversation(conv);
-      setMessages(conv.messages || []);
+      setMessages(normalizeMessages(conv.messages));
 
-      const socket = io(SOCKET_URL, {
-        auth: { token },
-        transports: ['websocket'],
-      });
+      const socket = await createChatSocket(token);
       socketRef.current = socket;
 
-      socket.emit('chat:join', { conversationId: conv.id });
-
-      socket.on('chat:message', (msg: ChatMessage) => {
-        setMessages((prev) => {
-          if (prev.find((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-        setIsAgentTyping(false);
+      socket.on('connect_error', () => {
+        setErrorMessage('Unable to connect to support chat. You can still retry in a moment.');
       });
 
-    socket.on('chat:status_change', ({ status }: { status: string; agentName?: string; conversationId: string }) => {
-        setConversation((prev) => prev ? { ...prev, status: status as any } : prev);
+      socket.on('chat:message', (msg: ChatMessage) => {
+        if (!msg?.id) return;
+        setMessages((prev) => (prev.find((m) => m.id === msg.id) ? prev : [...prev, msg]));
+        setIsAgentTyping(false);
+        setErrorMessage(null);
+      });
+
+      socket.on('chat:status_change', ({ status }: { status: string }) => {
+        setConversation((prev) => (prev ? { ...prev, status: status as Conversation['status'] } : prev));
         if (status === 'PENDING_HUMAN' || status === 'HUMAN_ACTIVE') {
           setSupportBannerVisible(false);
         }
       });
+
       socket.on('chat:typing', ({ isTyping, userName }: { isTyping: boolean; userName: string }) => {
-        setIsAgentTyping(isTyping);
-        setAgentTypingName(userName);
+        setIsAgentTyping(!!isTyping);
+        setAgentTypingName(userName || 'Support Agent');
       });
 
       socket.on('chat:read', () => {
         setMessages((prev) => prev.map((m) => ({ ...m, isRead: true })));
       });
-    } catch (err) {
+
+      socket.emit('chat:join', { conversationId: conv.id });
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.error ||
+        err?.message ||
+        'Support chat is temporarily unavailable. Please try again.';
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [disconnectSocket]);
+
+  useEffect(() => {
+    initChat();
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      disconnectSocket();
+    };
+  }, [initChat, disconnectSocket]);
 
   const sendMessage = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || !conversation || sending) return;
+    if (!trimmed || !conversation || sending || conversation.status === 'CLOSED') return;
+
+    if (!socketRef.current?.connected) {
+      setErrorMessage('Chat connection lost. Reconnecting...');
+      await initChat();
+      return;
+    }
+
     setSending(true);
     setInputText('');
-    socketRef.current?.emit('chat:send', { conversationId: conversation.id, text: trimmed });
+    socketRef.current.emit('chat:send', { conversationId: conversation.id, text: trimmed });
     setSending(false);
   };
 
-const handleRequestSupport = () => {
-    if (!conversation) return;
+  const handleRequestSupport = () => {
+    if (!conversation || !socketRef.current?.connected) return;
     setSupportBannerVisible(false);
-    socketRef.current?.emit('chat:request_support', { conversationId: conversation.id });
+    socketRef.current.emit('chat:request_support', { conversationId: conversation.id });
   };
 
   const handleTyping = (val: string) => {
     setInputText(val);
-    if (!conversation) return;
-    socketRef.current?.emit('chat:typing', { conversationId: conversation.id, isTyping: true });
+    if (!conversation || !socketRef.current?.connected) return;
+    socketRef.current.emit('chat:typing', { conversationId: conversation.id, isTyping: true });
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(() => {
       socketRef.current?.emit('chat:typing', { conversationId: conversation.id, isTyping: false });
@@ -198,65 +223,83 @@ const handleRequestSupport = () => {
 
     const isUser = item.senderType === 'USER';
     const isAgent = item.senderType === 'AGENT';
-    const isBot = item.senderType === 'BOT';
 
     return (
       <View style={[styles.msgBubbleWrapper, isUser ? styles.wrapperUser : styles.wrapperBot]}>
         {!isUser && isAgent && (
           <View style={[styles.botBubbleAvatar, styles.agentAvatar]}>
-            <MaterialCommunityIcons
-              name="headset"
-              size={13}
-              color="#FFF"
-            />
+            <MaterialCommunityIcons name="headset" size={13} color="#FFF" />
           </View>
         )}
         <View style={[styles.msgBubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
-          {(isAgent || isBot) && item.senderName && (
-            <Text style={styles.senderName}>{item.senderName}</Text>
-          )}
-          {item.text && (
-            <Text style={[styles.msgText, isUser ? styles.textUser : styles.textBot]}>
-              {item.text}
-            </Text>
-          )}
+          {isAgent && item.senderName ? <Text style={styles.senderName}>{item.senderName}</Text> : null}
+          {item.text ? (
+            <Text style={[styles.msgText, isUser ? styles.textUser : styles.textBot]}>{item.text}</Text>
+          ) : null}
           <View style={styles.msgFooter}>
             <Text style={[styles.msgTime, isUser ? styles.timeUser : styles.timeBot]}>
               {formatTime(item.createdAt)}
             </Text>
-            {isUser && (
+            {isUser ? (
               <MaterialCommunityIcons
                 name={item.isRead ? 'check-all' : 'check'}
                 size={12}
                 color={item.isRead ? '#60A5FA' : 'rgba(255,255,255,0.5)'}
                 style={{ marginLeft: 3 }}
               />
-            )}
+            ) : null}
           </View>
         </View>
       </View>
     );
   };
 
-  const isInputDisabled = conversation?.status === 'CLOSED';
+  const renderBlockedState = () => {
+    if (needsLogin) {
+      return (
+        <View style={styles.blockedState}>
+          <MaterialCommunityIcons name="account-lock-outline" size={56} color={COLORS.primary} />
+          <Text style={styles.blockedTitle}>Login Required</Text>
+          <Text style={styles.blockedText}>Please login to use chat support.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => router.replace('/(auth)/login' as any)}>
+            <Text style={styles.retryBtnText}>Go to Login</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (errorMessage) {
+      return (
+        <View style={styles.blockedState}>
+          <MaterialCommunityIcons name="chat-alert-outline" size={56} color={COLORS.primary} />
+          <Text style={styles.blockedTitle}>Chat Unavailable</Text>
+          <Text style={styles.blockedText}>{errorMessage}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={initChat}>
+            <Text style={styles.retryBtnText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  const blockedState = renderBlockedState();
+  const isInputDisabled = !conversation || conversation.status === 'CLOSED' || !!blockedState;
 
   return (
-  <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={conversation?.status === 'HUMAN_ACTIVE' ? '#0F766E' : COLORS.primary} />
 
       <View style={[styles.header, conversation?.status === 'HUMAN_ACTIVE' && styles.headerAgent]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <MaterialCommunityIcons name="arrow-left" size={22} color="#FFF" />
         </TouchableOpacity>
-        {conversation?.status === 'HUMAN_ACTIVE' && (
+        {conversation?.status === 'HUMAN_ACTIVE' ? (
           <View style={[styles.headerAvatar, styles.headerAvatarAgent]}>
-            <MaterialCommunityIcons
-              name="headset"
-              size={20}
-              color="#FFF"
-            />
+            <MaterialCommunityIcons name="headset" size={20} color="#FFF" />
           </View>
-        )}
+        ) : null}
         <View style={styles.headerMeta}>
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerName}>{getHeaderName()}</Text>
@@ -268,81 +311,89 @@ const handleRequestSupport = () => {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-       {supportBannerVisible && conversation?.status === 'AI_ACTIVE' && !loading && (
-          <View style={styles.supportBanner}>
-            <View style={styles.supportBannerLeft}>
-              <View style={styles.supportBannerIcon}>
-                <MaterialCommunityIcons name="headset" size={20} color={COLORS.primary} />
-              </View>
-              <View style={styles.supportBannerText}>
-                <Text style={styles.supportBannerTitle}>Talk to Customer Support</Text>
-                <Text style={styles.supportBannerSub}>Need help from a real executive? Connect instantly.</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.supportBannerBtn} onPress={handleRequestSupport} activeOpacity={0.85}>
-              <MaterialCommunityIcons name="headset" size={14} color="#FFF" />
-              <Text style={styles.supportBannerBtnText}>Connect</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={COLORS.primary} size="large" />
             <Text style={styles.loadingText}>Connecting to SevaBot...</Text>
           </View>
+        ) : blockedState ? (
+          blockedState
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.chatBody}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            ListHeaderComponent={messages.length === 0 ? renderWelcomeCard : undefined}
-            ListFooterComponent={
-              isAgentTyping ? (
-                <View style={[styles.msgBubbleWrapper, styles.wrapperBot]}>
-                  <View style={styles.agentAvatar}>
-                    <MaterialCommunityIcons name="headset" size={13} color="#FFF" />
+          <>
+            {supportBannerVisible && conversation?.status === 'AI_ACTIVE' ? (
+              <View style={styles.supportBanner}>
+                <View style={styles.supportBannerLeft}>
+                  <View style={styles.supportBannerIcon}>
+                    <MaterialCommunityIcons name="headset" size={20} color={COLORS.primary} />
                   </View>
-                  <View style={[styles.msgBubble, styles.bubbleBot, styles.typingBubble]}>
-                    <ActivityIndicator size="small" color={COLORS.primary} />
-                    <Text style={styles.typingText}>{agentTypingName} is typing...</Text>
+                  <View style={styles.supportBannerText}>
+                    <Text style={styles.supportBannerTitle}>Talk to Customer Support</Text>
+                    <Text style={styles.supportBannerSub}>Need help from a real executive? Connect instantly.</Text>
                   </View>
                 </View>
-              ) : null
-            }
-          />
-        )}
-
-        {!isInputDisabled && (
-          <View style={styles.suggestionContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
-              {SUGGESTION_CHIPS.map((chip, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.chip}
-                  onPress={() => sendMessage(chip)}
-                  disabled={sending}
-                >
-                  <Text style={styles.chipText}>{chip}</Text>
+                <TouchableOpacity style={styles.supportBannerBtn} onPress={handleRequestSupport} activeOpacity={0.85}>
+                  <MaterialCommunityIcons name="headset" size={14} color="#FFF" />
+                  <Text style={styles.supportBannerBtnText}>Connect</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+              </View>
+            ) : null}
+
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item, index) => item.id || `msg-${index}`}
+              renderItem={renderMessage}
+              contentContainerStyle={styles.chatBody}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              ListHeaderComponent={messages.length === 0 ? renderWelcomeCard : undefined}
+              ListFooterComponent={
+                isAgentTyping ? (
+                  <View style={[styles.msgBubbleWrapper, styles.wrapperBot]}>
+                    <View style={styles.agentAvatar}>
+                      <MaterialCommunityIcons name="headset" size={13} color="#FFF" />
+                    </View>
+                    <View style={[styles.msgBubble, styles.bubbleBot, styles.typingBubble]}>
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                      <Text style={styles.typingText}>{agentTypingName || 'Support Agent'} is typing...</Text>
+                    </View>
+                  </View>
+                ) : null
+              }
+            />
+
+            {!isInputDisabled ? (
+              <View style={styles.suggestionContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+                  {SUGGESTION_CHIPS.map((chip, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.chip}
+                      onPress={() => sendMessage(chip)}
+                      disabled={sending}
+                    >
+                      <Text style={styles.chipText}>{chip}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+          </>
         )}
 
         <View style={styles.inputBar}>
           {isInputDisabled ? (
             <View style={styles.closedBanner}>
               <MaterialCommunityIcons name="information-outline" size={14} color="#64748B" />
-              <Text style={styles.closedText}>This conversation is closed. Start a new one.</Text>
+              <Text style={styles.closedText}>
+                {conversation?.status === 'CLOSED'
+                  ? 'This conversation is closed. Start a new one.'
+                  : 'Chat input unavailable right now.'}
+              </Text>
             </View>
           ) : (
             <>
@@ -376,7 +427,7 @@ const handleRequestSupport = () => {
 }
 
 const styles = StyleSheet.create({
- safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
+  safeArea: { flex: 1, backgroundColor: '#F8FAFC' },
   flex: { flex: 1, backgroundColor: '#F8FAFC' },
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
   headerAgent: { backgroundColor: '#0F766E' },
@@ -391,6 +442,11 @@ const styles = StyleSheet.create({
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, backgroundColor: '#F8FAFC' },
   loadingText: { color: '#64748B', fontSize: 13 },
+  blockedState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#F8FAFC' },
+  blockedTitle: { fontSize: 20, fontWeight: '700', color: '#0F172A', marginTop: 16 },
+  blockedText: { fontSize: 14, color: '#64748B', textAlign: 'center', marginTop: 10, lineHeight: 22 },
+  retryBtn: { marginTop: 20, backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+  retryBtnText: { color: '#FFFFFF', fontWeight: '700' },
   chatBody: { paddingHorizontal: 16, paddingVertical: 20 },
   welcomeCard: { backgroundColor: '#FFF', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', padding: 16, marginBottom: 20, ...SHADOWS.soft },
   welcomeGreeting: { fontSize: 14, color: '#475569', lineHeight: 20, marginBottom: 12 },
@@ -426,7 +482,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 24, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 10 : 6, fontSize: 14, color: '#1E293B', marginRight: 10 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', ...SHADOWS.glow },
   closedBanner: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#F1F5F9', borderRadius: 12 },
-closedText: { fontSize: 12, color: '#64748B', flex: 1 },
+  closedText: { fontSize: 12, color: '#64748B', flex: 1 },
   supportBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F0FDFA', borderBottomWidth: 1, borderBottomColor: '#CCFBF1', paddingHorizontal: 14, paddingVertical: 10 },
   supportBannerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
   supportBannerIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#CCFBF1', justifyContent: 'center', alignItems: 'center', marginRight: 10 },

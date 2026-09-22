@@ -12,6 +12,7 @@ import { showError, showSuccess } from '../../src/store/toastStore';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import { ensurePhotosPermission } from '../../src/utils/imagePicker';
 
 type GovtDocType = 'AADHAAR' | 'PAN_CARD' | 'DRIVING_LICENSE' | 'QUALIFICATION_DOC';
 
@@ -40,6 +41,8 @@ export default function PhlebotomistRegisterScreen() {
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [showPickerModal, setShowPickerModal] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+  const [registrationCoords, setRegistrationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [detectedPincode, setDetectedPincode] = useState('');
 
   const handleGetLocation = async () => {
     try {
@@ -51,6 +54,7 @@ export default function PhlebotomistRegisterScreen() {
         return;
       }
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setRegistrationCoords({ latitude: location.coords.latitude, longitude: location.coords.longitude });
       const [address] = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude
@@ -58,6 +62,7 @@ export default function PhlebotomistRegisterScreen() {
       if (address) {
         const area = [address.district, address.city, address.region].filter(Boolean).join(', ');
         setServiceArea(area || 'Unknown Area');
+        if (address.postalCode) setDetectedPincode(address.postalCode);
         showSuccess('Location detected successfully');
       }
     } catch (err) {
@@ -90,8 +95,8 @@ export default function PhlebotomistRegisterScreen() {
         const a = res.assets[0];
         fileUri = a.uri; fileName = a.fileName || `${targetDocType}_doc.jpg`; mimeType = a.mimeType || 'image/jpeg'; fileSize = a.fileSize || 0;
       } else if (source === 'gallery') {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
+        const hasPermission = await ensurePhotosPermission();
+        if (!hasPermission) {
           showError('Photo gallery permission is required.');
           setIsUploadingDoc(false);
           return;
@@ -171,6 +176,9 @@ export default function PhlebotomistRegisterScreen() {
         experience: experience.trim(),
         serviceArea: serviceArea.trim(),
         address: serviceArea.trim() || 'Independent',
+        pincode: detectedPincode.trim() || undefined,
+        latitude: registrationCoords?.latitude,
+        longitude: registrationCoords?.longitude,
         documents: docsList,
       });
       router.replace('/(auth)/phlebotomist-pending');

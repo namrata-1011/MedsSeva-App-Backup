@@ -12,6 +12,7 @@ import { RootState } from '../../src/store';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showSuccess, showError } from '../../src/store/toastStore';
+import { getCurrentCoordinates } from '../../src/utils/location';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { NotificationCenter } from '../../src/components/NotificationCenter';
 import { Image } from 'expo-image';
@@ -166,8 +167,13 @@ export default function PhlebotomistHomeScreen() {
   const handleToggleAvailability = async (val: boolean) => {
     try {
       setIsAvailable(val);
-      await apiService.toggleAvailability(val);
-      showSuccess(val ? 'You are now Online for sample collections' : 'You are now Offline');
+      const coords = val ? await getCurrentCoordinates() : null;
+      await apiService.toggleAvailability(val, coords || undefined);
+      if (val && !coords) {
+        showError('Location not detected. Turn on GPS to receive nearby bookings.');
+      } else {
+        showSuccess(val ? 'You are now Online for sample collections' : 'You are now Offline');
+      }
     } catch {
       setIsAvailable(!val);
       showError('Failed to update duty status');

@@ -1,7 +1,7 @@
 import axios from 'axios';
+import { getApiBaseUrl } from '../config/env';
 
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const API_BASE_URL = getApiBaseUrl();
 
 // Create an axios instance for tests
 const testApi = axios.create({

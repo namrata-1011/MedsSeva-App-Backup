@@ -36,6 +36,7 @@ export default function AddAddressScreen() {
   const [phone, setPhone] = useState(user?.mobile || '+91 9876543210');
   const [addressType, setAddressType] = useState<'Home' | 'Work' | 'Other'>('Home');
   const [isLocating, setIsLocating] = useState(false);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const handleDetectLocation = async () => {
     setIsLocating(true);
@@ -46,6 +47,7 @@ export default function AddAddressScreen() {
         return;
       }
       const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setCoords({ latitude: location.coords.latitude, longitude: location.coords.longitude });
       const geocodes = await Location.reverseGeocodeAsync({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
@@ -71,6 +73,22 @@ showInfo("Please fill in all mandatory address fields.");
       return;
     }
 
+    if (!coords) {
+      showInfo('Please detect your current location before saving the address.');
+      return;
+    }
+
+    try {
+      const serviceCheck = await apiService.checkServiceArea(pincode.trim());
+      if (!serviceCheck?.serviceable) {
+        showError('Services are not available in your area.');
+        return;
+      }
+    } catch {
+      showError('Could not verify service area. Please try again.');
+      return;
+    }
+
     const fullAddressString = `${flatNo}, ${landmark ? landmark + ', ' : ''}${area}, ${city}, ${state} - ${pincode}`;
 
     const newAddr = {
@@ -85,8 +103,8 @@ showInfo("Please fill in all mandatory address fields.");
       city: city.trim(),
       state: state.trim(),
       pincode: pincode.trim(),
-     latitude: 0,
-      longitude: 0,
+     latitude: coords.latitude,
+      longitude: coords.longitude,
     };
 
 try {
@@ -98,6 +116,8 @@ try {
         city: city.trim(),
         state: state.trim(),
         pincode: pincode.trim(),
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         isDefault: true
       });
       console.log('[ADD-ADDRESS DEBUG] Backend saved ID:', saved.id);

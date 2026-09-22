@@ -12,16 +12,36 @@ import { tokenStorage } from '../../src/utils/tokenStorage';
 import { COLORS } from '../../src/theme/theme';
 import { loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
-import auth from '@react-native-firebase/auth';
 import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 
 const { width } = Dimensions.get('window');
 const PRIMARY = COLORS.primary;
 
+const asParam = (value?: string | string[]) =>
+  (Array.isArray(value) ? value[0] : value) || '';
+
 export default function OTPScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { mobile: paramMobile, expectedRole, verificationId: paramVerificationId } = useLocalSearchParams<{ mobile?: string; expectedRole?: string; verificationId?: string }>();
+  const {
+    mobile: paramMobile,
+    expectedRole,
+    verificationId: paramVerificationId,
+    flow,
+    name: paramName,
+    email: paramEmail,
+    referralCode: paramReferralCode,
+  } = useLocalSearchParams<{
+    mobile?: string;
+    expectedRole?: string;
+    verificationId?: string;
+    flow?: string;
+    name?: string;
+    email?: string;
+    referralCode?: string;
+  }>();
+
+  const isRegisterFlow = flow === 'register';
 
   const [step, setStep] = useState<'mobile' | 'otp'>(paramMobile ? 'otp' : 'mobile');
   const [mobileNumber, setMobileNumber] = useState(paramMobile || '');
@@ -42,7 +62,30 @@ export default function OTPScreen() {
       setMobileNumber(paramMobile);
       setStep('otp');
     }
-  }, [paramMobile]);
+    if (paramVerificationId) {
+      setVerificationId(paramVerificationId);
+    }
+  }, [paramMobile, paramVerificationId]);
+
+  useEffect(() => {
+    if (!paramMobile || paramVerificationId || step !== 'otp') return;
+
+    let cancelled = false;
+    (async () => {
+      setIsSending(true);
+      setServerError(null);
+      const firebaseResult = await firebaseAuthService.sendPhoneOtp(paramMobile);
+      if (cancelled) return;
+      if (!firebaseResult.success || !firebaseResult.verificationId) {
+        setServerError(firebaseResult.error || 'Failed to send Firebase OTP.');
+      } else {
+        setVerificationId(firebaseResult.verificationId);
+      }
+      setIsSending(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [paramMobile, paramVerificationId, step]);
 
   useEffect(() => {
     if (step === 'otp') {
@@ -97,20 +140,14 @@ export default function OTPScreen() {
         return;
       }
 
-      // Send Firebase Phone Authentication OTP SMS
-      try {
-        const confirmation = await auth().signInWithPhoneNumber(`+91${mobileNumber}`);
-        setVerificationId(confirmation.verificationId || '');
-      } catch (firebaseErr: any) {
-        console.error('Firebase Auth Error:', firebaseErr);
-        const fbResult = await firebaseAuthService.sendPhoneOtp(mobileNumber);
-        if (!fbResult.success) {
-          setServerError(firebaseErr?.message || fbResult.error || 'Failed to send verification code via Firebase. Please try again.');
-          setIsSending(false);
-          return;
-        }
+      const firebaseResult = await firebaseAuthService.sendPhoneOtp(mobileNumber);
+      if (!firebaseResult.success || !firebaseResult.verificationId) {
+        setServerError(firebaseResult.error || 'Failed to send Firebase OTP. Please try again.');
+        setIsSending(false);
+        return;
       }
 
+      setVerificationId(firebaseResult.verificationId);
       setStep('otp');
       setOtp(['', '', '', '', '', '']);
     } catch {
@@ -169,100 +206,126 @@ export default function OTPScreen() {
     if (!canResend) return;
     setOtp(['', '', '', '', '', '']);
     setOtpError('');
+    if (isRegisterFlow) {
+      setIsSending(true);
+      setServerError(null);
+      try {
+        const firebaseResult = await firebaseAuthService.sendPhoneOtp(mobileNumber);
+        if (!firebaseResult.success || !firebaseResult.verificationId) {
+          setServerError(firebaseResult.error || 'Failed to send Firebase OTP. Please try again.');
+        } else {
+          setVerificationId(firebaseResult.verificationId);
+        }
+      } finally {
+        setIsSending(false);
+      }
+      return;
+    }
     await handleSendOtp();
+  };
+
+  const completeLogin = async (loginResult: any) => {
+    const userObj = {
+      id: loginResult.user.id,
+      name: loginResult.user.name,
+      email: loginResult.user.email,
+      mobile: loginResult.user.mobile,
+      role: loginResult.user.role,
+      uhid: loginResult.user.uhid,
+      referralCode: loginResult.user.referralCode,
+      partner: loginResult.user.partner,
+      doctor: loginResult.user.doctor,
+      adminRoleSlug: loginResult.user.adminRoleSlug,
+    };
+
+    if (expectedRole) {
+      const uRole = (loginResult.user.role || '').toUpperCase();
+      if (expectedRole === 'DOCTOR' && uRole !== 'DOCTOR' && uRole !== 'PATHOLOGIST' && uRole !== 'ADMIN') {
+        setOtpError('This mobile number does not belong to a registered Doctor account.');
+        return false;
+      }
+      if (expectedRole === 'PATHOLOGY_PARTNER' && uRole !== 'PATHOLOGY_PARTNER') {
+        setOtpError('This mobile number does not belong to a registered Pathology Partner account.');
+        return false;
+      }
+      if (expectedRole === 'EXECUTIVE') {
+        const isPhleb = uRole === 'EXECUTIVE' || loginResult.user.partner?.role === 'PHLEBOTOMIST';
+        if (!isPhleb) {
+          setOtpError('This mobile number does not belong to a registered Phlebotomist account.');
+          return false;
+        }
+      }
+    }
+
+    await AsyncStorage.setItem('user', JSON.stringify(userObj));
+    await tokenStorage.setItem('token', loginResult.token);
+    dispatch(loginSuccess(userObj));
+
+    const { registerFcmToken } = await import('../../src/services/notificationService');
+    registerFcmToken().catch(console.warn);
+
+    const uRole = (loginResult.user.role || '').toUpperCase();
+    const pRole = (loginResult.user.partner?.role || '').toUpperCase();
+    const adminSlug = (loginResult.user.adminRoleSlug || '').toLowerCase();
+    const isPhlebo =
+      uRole === 'EXECUTIVE' ||
+      pRole === 'PHLEBOTOMIST' ||
+      adminSlug === 'executive';
+
+    if (isPhlebo) {
+      router.replace('/(phlebotomist)/home' as any);
+    } else if (uRole === 'PATHOLOGY_PARTNER') {
+      router.replace('/(partner)/home' as any);
+    } else if (uRole === 'DOCTOR' || uRole === 'PATHOLOGIST') {
+      router.replace('/(doctor)/home' as any);
+    } else {
+      router.replace('/(tabs)' as any);
+    }
+    return true;
   };
 
   const verifyOtp = async (codeOverride?: string) => {
     const otpValue = typeof codeOverride === 'string' ? codeOverride : otp.join('');
     if (otpValue.length !== 6) return;
+    if (!verificationId) {
+      setOtpError('OTP session not ready. Please wait or tap Resend OTP.');
+      return;
+    }
     setOtpError('');
 
     setIsLoading(true);
     try {
-      let firebaseIdToken = '';
+      const fbVerify = await firebaseAuthService.verifyOtpCode(otpValue, verificationId);
+      if (!fbVerify.success || !fbVerify.idToken) {
+        setOtpError(fbVerify.error || 'Invalid OTP code. Please try again.');
+        setIsLoading(false);
+        return;
+      }
 
-      if (verificationId) {
-        const credential = auth.PhoneAuthProvider.credential(verificationId, otpValue);
-        const userCredential = await auth().signInWithCredential(credential);
-        firebaseIdToken = await userCredential.user.getIdToken(true);
+      let authResult;
+      if (isRegisterFlow) {
+        const name = asParam(paramName);
+        const email = asParam(paramEmail);
+        const referralCode = asParam(paramReferralCode);
+        if (!name || !email) {
+          setOtpError('Registration details missing. Please go back and try again.');
+          setIsLoading(false);
+          return;
+        }
+        authResult = await apiService.registerWithFirebaseToken(fbVerify.idToken, {
+          name,
+          email,
+          referralCode: referralCode || undefined,
+        });
       } else {
-        const fbVerify = await firebaseAuthService.verifyOtpCode(otpValue);
-        if (!fbVerify.success || !fbVerify.idToken) {
-          setOtpError(fbVerify.error || 'Invalid OTP code. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-        firebaseIdToken = fbVerify.idToken;
+        authResult = await apiService.loginWithFirebaseToken(fbVerify.idToken);
       }
 
-      // Exchange verified Firebase ID Token for MedsSeva JWT session
-      const loginResult = await apiService.loginWithFirebaseToken(firebaseIdToken);
-      const userObj = {
-        id: loginResult.user.id,
-        name: loginResult.user.name,
-        email: loginResult.user.email,
-        mobile: loginResult.user.mobile,
-        role: loginResult.user.role,
-        uhid: loginResult.user.uhid,
-        referralCode: loginResult.user.referralCode,
-        partner: loginResult.user.partner,
-        doctor: loginResult.user.doctor,
-        adminRoleSlug: loginResult.user.adminRoleSlug,
-      };
-
-      // If this screen expected a specific role, validate it
-      if (expectedRole) {
-        const uRole = (loginResult.user.role || '').toUpperCase();
-        if (expectedRole === 'DOCTOR' && uRole !== 'DOCTOR' && uRole !== 'PATHOLOGIST' && uRole !== 'ADMIN') {
-          setOtpError('This mobile number does not belong to a registered Doctor account.');
-          setIsLoading(false);
-          return;
-        }
-        if (expectedRole === 'PATHOLOGY_PARTNER' && uRole !== 'PATHOLOGY_PARTNER') {
-          setOtpError('This mobile number does not belong to a registered Pathology Partner account.');
-          setIsLoading(false);
-          return;
-        }
-        if (expectedRole === 'EXECUTIVE') {
-          const isPhleb = uRole === 'EXECUTIVE' || loginResult.user.partner?.role === 'PHLEBOTOMIST';
-          if (!isPhleb) {
-            setOtpError('This mobile number does not belong to a registered Phlebotomist account.');
-            setIsLoading(false);
-            return;
-          }
-        }
-      }
-
-      await AsyncStorage.setItem('user', JSON.stringify(userObj));
-      await tokenStorage.setItem('token', loginResult.token);
-      dispatch(loginSuccess(userObj));
-
-      const { registerFcmToken } = await import('../../src/services/notificationService');
-      registerFcmToken().catch(console.warn);
-
-      // Route according to user role
-      const uRole = (loginResult.user.role || '').toUpperCase();
-      const pRole = (loginResult.user.partner?.role || '').toUpperCase();
-      const adminSlug = (loginResult.user.adminRoleSlug || '').toLowerCase();
-
-      const isPhlebo =
-        uRole === 'EXECUTIVE' ||
-        pRole === 'PHLEBOTOMIST' ||
-        adminSlug === 'executive';
-
-      if (isPhlebo) {
-        router.replace('/(phlebotomist)/home' as any);
-      } else if (uRole === 'PATHOLOGY_PARTNER') {
-        router.replace('/(partner)/home' as any);
-      } else if (uRole === 'DOCTOR' || uRole === 'PATHOLOGIST') {
-        router.replace('/(doctor)/home' as any);
-      } else {
-        router.replace('/(tabs)' as any);
-      }
-      */
+      const ok = await completeLogin(authResult);
+      if (!ok) setIsLoading(false);
     } catch (error: any) {
-      console.error('Firebase Verify Error:', error);
-      const msg = error.message || error.response?.data?.error || 'Authentication failed. Please try again.';
+      console.error('Firebase OTP Verify Error:', error);
+      const msg = error.response?.data?.error || error.message || 'Authentication failed. Please try again.';
       setOtpError(msg);
     } finally {
       setIsLoading(false);
@@ -353,7 +416,9 @@ export default function OTPScreen() {
             </>
           ) : (
             <>
-              <Text style={styles.title}>Verify Mobile Number</Text>
+              <Text style={styles.title}>
+                {isRegisterFlow ? 'Verify & Create Account' : 'Verify Mobile Number'}
+              </Text>
               <Text style={styles.subtitleOtp}>
                 Enter the 6-digit code sent to{'\n'}
                 <Text style={styles.maskedNum}>{maskedNumber} </Text>
@@ -408,7 +473,11 @@ export default function OTPScreen() {
                 disabled={isLoading || otp.join('').length !== 6}
                 activeOpacity={0.85}
               >
-                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify & Login</Text>}
+                {isLoading ? <ActivityIndicator color="#fff" /> : (
+                  <Text style={styles.primaryBtnText}>
+                    {isRegisterFlow ? 'Verify & Continue' : 'Verify & Login'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </>
           )}

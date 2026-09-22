@@ -12,7 +12,60 @@
           "package_name": "com.medssevaglobal.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "839294408960-1rtugtsodghi53fp2bm4ae0b7on0b72i.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.medssevaglobal.app",
+            "certificate_hash": "3470d347614df84cd75bc70a7fcc771d6d92f39f"
+          }
+        },
+        {
+          "client_id": "839294408960-6totk3lm6fon5t3mic4r7oqemdt78arj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.medssevaglobal.app",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "839294408960-c8midu88ktpfulldqvgh842v3e6f3lak.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.medssevaglobal.app",
+            "certificate_hash": "3a3bdf2eb7b62641ed65c627d6b47044c7df2691"
+          }
+        },
+        {
+          "client_id": "839294408960-gojljkj3hvljoq2dqi5an2eakltm5de9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.medssevaglobal.app",
+            "certificate_hash": "cad19a363d217b063f06d02916beed5904eee052"
+          }
+        },
+        {
+          "client_id": "839294408960-j9e9u6co82eqt5p4ouq5dg4m5vk2jdne.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.medssevaglobal.app",
+            "certificate_hash": "1134e3f65bdc20e669c7ab2e320f1cd88dae59db"
+          }
+        },
+        {
+          "client_id": "839294408960-ul5d3e4dbooc4d5v1r0f0lir6l7jd07j.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.medssevaglobal.app",
+            "certificate_hash": "46418f1a483128a56aba3085bcba867da11e36b6"
+          }
+        },
+        {
+          "client_id": "839294408960-qb28vhptmvn4eq1cakmqloaj34q0gj8g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCnb54szGFqyG-nY6TTBQZMVfl58iZJTpI"
@@ -20,7 +73,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "839294408960-qb28vhptmvn4eq1cakmqloaj34q0gj8g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

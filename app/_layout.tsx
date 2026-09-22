@@ -17,12 +17,12 @@ import {
   onMessage,
   getInitialNotification,
   onNotificationOpenedApp,
-  setBackgroundMessageHandler,
 } from '@react-native-firebase/messaging';
 import {
   registerFcmToken,
   setupTokenRefreshListener,
   getDeepLinkRoute,
+  ensureAndroidChannels,
 } from '../src/services/notificationService';
 
 import { GlobalSchedulerOverlay } from '../src/components/GlobalSchedulerOverlay';
@@ -80,19 +80,41 @@ function AppContent() {
 
  const messaging = getMessaging();
 
-    registerFcmToken();
+    registerFcmToken({ force: true });
+    ensureAndroidChannels().catch(() => {});
     tokenRefreshUnsub.current = setupTokenRefreshListener();
 
-    setBackgroundMessageHandler(messaging, async () => {});
-
+    // Background handler is registered in src/services/fcmBackground.ts (via index.js)
     const unsubForeground = onMessage(messaging, async (remoteMessage) => {
-      const { title, body } = remoteMessage.notification || {};
-      if (!title || !body) return;
+      const title =
+        remoteMessage.notification?.title ||
+        (remoteMessage.data?.title as string) ||
+        'MedsSeva';
+      const body =
+        remoteMessage.notification?.body ||
+        (remoteMessage.data?.body as string) ||
+        (remoteMessage.data?.message as string);
+      if (!body) return;
+
+      const channelId =
+        (remoteMessage.data?.channelId as string) ||
+        (remoteMessage.data?.type === 'PAYMENT_SUCCESS' || remoteMessage.data?.type === 'PAYMENT_FAILED'
+          ? 'payments'
+          : remoteMessage.data?.type?.includes('REPORT')
+            ? 'reports'
+            : remoteMessage.data?.type?.includes('CHAT') || remoteMessage.data?.type === 'SUPPORT_REPLY'
+              ? 'chat'
+              : remoteMessage.data?.type?.includes('BOOKING') || remoteMessage.data?.type?.includes('SAMPLE') || remoteMessage.data?.type?.includes('PARTNER')
+                ? 'bookings'
+                : 'general');
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           data: remoteMessage.data || {},
+          sound: true,
+          ...(channelId ? { channelId } : {}),
         },
         trigger: null,
       });

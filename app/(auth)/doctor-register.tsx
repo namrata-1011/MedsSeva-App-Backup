@@ -11,6 +11,7 @@ import { showError, showSuccess, showInfo } from '../../src/store/toastStore';
 import { apiService } from '../../src/services/api';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { ensurePhotosPermission } from '../../src/utils/imagePicker';
 
 type GovtDocType = 'AADHAAR' | 'PAN_CARD' | 'DRIVING_LICENSE' | 'SIGNATURE_DOC';
 
@@ -60,8 +61,8 @@ export default function DoctorRegisterScreen() {
         const a = res.assets[0];
         fileUri = a.uri; fileName = a.fileName || `${targetDocType}_doc.jpg`; mimeType = a.mimeType || 'image/jpeg'; fileSize = a.fileSize || 0;
       } else if (source === 'gallery') {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
+        const hasPermission = await ensurePhotosPermission();
+        if (!hasPermission) {
           showError('Photo gallery permission is required.');
           setIsUploadingDoc(false);
           return;

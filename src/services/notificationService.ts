@@ -18,14 +18,36 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const registerFcmToken = async (): Promise<void> => {
+export const ensureAndroidChannels = async (): Promise<void> => {
+  if (Platform.OS !== 'android') return;
+  const channels = [
+    { id: 'general', name: 'General', importance: Notifications.AndroidImportance.HIGH },
+    { id: 'bookings', name: 'Bookings', importance: Notifications.AndroidImportance.MAX },
+    { id: 'reports', name: 'Reports', importance: Notifications.AndroidImportance.HIGH },
+    { id: 'chat', name: 'Chat', importance: Notifications.AndroidImportance.HIGH },
+    { id: 'payments', name: 'Payments', importance: Notifications.AndroidImportance.MAX },
+  ];
+  await Promise.all(
+    channels.map((c) =>
+      Notifications.setNotificationChannelAsync(c.id, {
+        name: c.name,
+        importance: c.importance,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#006D6F',
+        sound: 'default',
+      })
+    )
+  );
+};
+
+export const registerFcmToken = async (opts?: { force?: boolean }): Promise<void> => {
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
- const { status } = await Notifications.requestPermissionsAsync({
+      const { status } = await Notifications.requestPermissionsAsync({
         ios: {
           allowAlert: true,
           allowBadge: true,
@@ -44,7 +66,7 @@ export const registerFcmToken = async (): Promise<void> => {
     if (!token) return;
 
     const saved = await AsyncStorage.getItem('fcm_token');
-    if (saved === token) return;
+    if (!opts?.force && saved === token) return;
 
     await api.post('/notifications/token/register', {
       token,
@@ -120,7 +142,8 @@ case 'PARTNER_ON_THE_WAY':
     case 'NEW_OFFER':
     case 'NEW_PACKAGE':
     case 'PRICE_UPDATE':
-      return '/package';
+    case 'BROADCAST':
+      return '/(tabs)';
     default:
       return null;
   }

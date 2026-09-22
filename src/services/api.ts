@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../utils/tokenStorage';
+import { PRODUCTION_API_URL } from '../config/env';
 
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -20,8 +21,7 @@ const getBaseUrl = () => {
     return `http://${ip}:5000/api`;
   }
 
-  // Fallback
-  return 'http://10.207.247.1:5000/api';
+  return PRODUCTION_API_URL;
 };
 
 const api = axios.create({
@@ -97,6 +97,8 @@ checkMobile: (mobile: string) => api.get(`/auth/check-mobile?mobile=${encodeURIC
   verifyOtp: (mobile: string, otp: string) => api.post('/auth/otp/verify', { mobile, otp }).then(res => res.data),
   loginWithOtp: (mobile: string, otp: string, idToken?: string) => api.post('/auth/otp/login', { mobile, otp, idToken }).then(res => res.data),
   loginWithFirebaseToken: (idToken: string) => api.post('/auth/firebase/login', { idToken }).then(res => res.data),
+  registerWithFirebaseToken: (idToken: string, data: { name: string; email: string; referralCode?: string }) =>
+    api.post('/auth/firebase/register', { idToken, ...data }).then(res => res.data),
   sendEmailOtp: (email: string) => api.post('/auth/email/send-otp', { email }).then(res => res.data),
   verifyEmailOtp: (email: string, otp: string) => api.post('/auth/email/verify-otp', { email, otp }).then(res => res.data),
   sendForgotPasswordOtp: (email: string) => api.post('/auth/email/forgot-password', { email }).then(res => res.data),
@@ -104,6 +106,8 @@ checkMobile: (mobile: string) => api.get(`/auth/check-mobile?mobile=${encodeURIC
   resetPassword: (email: string, password: string) => api.post('/auth/reset-password', { email, password }).then(res => res.data),
   getAddresses: (mobile: string) => api.get(`/addresses?mobile=${encodeURIComponent(mobile)}`).then(res => res.data),
   addAddress: (data: any) => api.post('/addresses', data).then(res => res.data),
+  checkServiceArea: (pincode: string) =>
+    api.get(`/service-areas/check?pincode=${encodeURIComponent(pincode)}`).then(res => res.data),
   removeAddress: (id: string) => api.delete(`/addresses/${id}`).then(res => res.data),
   getCities: () => api.get('/cities').then(res => res.data),
   getBookings: (mobile: string) => api.get(`/bookings?mobile=${encodeURIComponent(mobile)}`).then(res => res.data),
@@ -203,7 +207,8 @@ acceptLabBooking: (bookingId: string) => api.patch(`/bookings/${bookingId}/accep
       throw err;
     }
   },
-  toggleAvailability: (isAvailable: boolean) => api.patch('/partner/availability', { isAvailable }).then(res => res.data),
+  toggleAvailability: (isAvailable: boolean, coords?: { latitude: number; longitude: number }) =>
+    api.patch('/partner/availability', { isAvailable, ...coords }).then(res => res.data),
   getPartnerProfile: () => api.get('/partner/profile').then(res => res.data),
 collectCash: (bookingId: string) => api.post(`/partner/bookings/${bookingId}/collect-cash`).then(res => res.data),
 initiateUpiCollection: (bookingId: string) => api.post(`/partner/bookings/${bookingId}/collect-upi`).then(res => res.data),

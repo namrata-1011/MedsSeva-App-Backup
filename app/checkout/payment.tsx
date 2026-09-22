@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import ScreenWrapper from '../../src/components/ScreenWrapper';
 import { showError } from '../../src/store/toastStore';
 import { useRouter } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import RazorpayCheckout from 'react-native-razorpay';
 
 import { RootState } from '../../src/store';
 import { setPaymentMethod, finalizeBooking } from '../../src/store/slices/bookingSlice';
 import { clearCart } from '../../src/store/slices/cartSlice';
 import { COLORS, TYPOGRAPHY, SHADOWS } from '../../src/theme/theme';
 import { apiService } from '../../src/services/api';
-import { RazorpayWebView } from '../../components/RazorpayWebView';
 
 // Payment methods shown depend on collectionMode - computed below from Redux
 const HOME_PAYMENT_METHODS = [
@@ -36,10 +36,6 @@ const isLabVisit = booking.collectionMode === 'lab';
   // For lab visit: auto-select the only option
   const [selectedMethod, setSelectedMethod] = useState<string | null>(isLabVisit ? 'lab_walkin' : null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isRazorpayVisible, setIsRazorpayVisible] = useState(false);
-  const [razorpayOrderId, setRazorpayOrderId] = useState<string>('');
-  const [razorpayKeyId, setRazorpayKeyId] = useState<string>('');
-  const [razorpayAmount, setRazorpayAmount] = useState<number>(0);
 
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [useWallet, setUseWallet] = useState<boolean>(false);
@@ -140,7 +136,7 @@ const isLabVisit = booking.collectionMode === 'lab';
           packageIds: cart.items.filter(i => i.itemType === 'package').map(i => i.id),
           collectionMode: isLabVisit ? 'lab' : 'home',
           couponCode: booking.appliedCouponCode || undefined,
-         scheduledDate: booking.selectedDate ?? undefined,
+          scheduledDate: booking.selectedDate ?? undefined,
           scheduledSlot: booking.selectedTimeSlot ?? undefined,
           patientName: booking.patientDetails?.name || 'Guest User',
           patientAge: booking.patientDetails?.age ? Number(booking.patientDetails.age) : undefined,
@@ -150,14 +146,56 @@ const isLabVisit = booking.collectionMode === 'lab';
           branchId: (isLabVisit ? branchId : undefined) ?? undefined,
           useWallet: useWallet,
         });
-        setRazorpayOrderId(order.razorpayOrderId);
-        setRazorpayKeyId(order.keyId);
-        setRazorpayAmount(Math.round(order.amount * 100));
+
+        if (!order?.razorpayOrderId || !order?.keyId) {
+          throw new Error(order?.error || 'Payment order was not created. Please try again.');
+        }
+
+        const amountPaise = Math.round(Number(order.amount) * 100);
+        if (!amountPaise || amountPaise < 100) {
+          throw new Error('Invalid payment amount from server.');
+        }
+
         setIsProcessing(false);
-        setIsRazorpayVisible(true);
+
+        const paymentResult = await RazorpayCheckout.open({
+          key: order.keyId,
+          amount: amountPaise,
+          currency: order.currency || 'INR',
+          name: 'MedsSeva',
+          description: 'Lab test booking',
+          order_id: order.razorpayOrderId,
+          prefill: {
+            name: booking.patientDetails?.name || '',
+            contact: booking.patientDetails?.mobile || '',
+            email: '',
+          },
+          theme: { color: COLORS.primary },
+        });
+
+        await processBackendBooking({
+          razorpay_order_id: paymentResult.razorpay_order_id || order.razorpayOrderId,
+          razorpay_payment_id: paymentResult.razorpay_payment_id,
+          razorpay_signature: paymentResult.razorpay_signature,
+        });
       } catch (error: any) {
         setIsProcessing(false);
-        showError('Could not connect to payment server. Please try again.');
+        // User cancelled checkout
+        if (
+          error?.code === 2 ||
+          String(error?.description || error?.message || '').toLowerCase().includes('cancel')
+        ) {
+          showError('Payment cancelled. You can try again anytime.');
+          return;
+        }
+        const serverMsg = error?.response?.data?.error || error?.description || error?.message;
+        console.error('[Booking] Razorpay error:', {
+          platform: Platform.OS,
+          code: error?.code,
+          message: serverMsg,
+          raw: error,
+        });
+        showError(serverMsg || 'Could not complete payment. Please try again.');
       }
     }
   };
@@ -303,33 +341,6 @@ const isLabVisit = booking.collectionMode === 'lab';
           </View>
         </View>
       )}
-
-     
-<RazorpayWebView
-        isVisible={isRazorpayVisible}
-        options={{
-          key: razorpayKeyId,
-          order_id: razorpayOrderId,
-          amount: razorpayAmount,
-          currency: 'INR',
-          name: 'MedsSeva',
-          description: 'Checkout Booking',
-          prefill: {
-            name: booking.patientDetails?.name || '',
-            contact: booking.patientDetails?.mobile || '',
-          },
-          theme: { color: COLORS.primary }
-        }}
-        onSuccess={(data) => {
-          setIsRazorpayVisible(false);
-          processBackendBooking(data);
-        }}
-      onFailed={(error) => {
-          setIsRazorpayVisible(false);
-          showError('Payment was not completed. Please retry or choose a different method.');
-        }}
-        onClose={() => setIsRazorpayVisible(false)}
-      />
 
     </View>
   );

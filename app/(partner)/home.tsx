@@ -12,6 +12,7 @@ import { RootState } from '../../src/store';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showError } from '../../src/store/toastStore';
+import { getCurrentCoordinates } from '../../src/utils/location';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { useNotificationPermission } from '../../src/hooks/useNotificationPermission';
 import { NotificationCenter } from '../../src/components/NotificationCenter';
@@ -104,7 +105,11 @@ useEffect(() => { loadData(); }, [loadData]);
   const handleToggleAvailability = async (val: boolean) => {
     try {
       setIsAvailable(val);
-      await apiService.toggleAvailability(val);
+      const coords = val ? await getCurrentCoordinates() : null;
+      await apiService.toggleAvailability(val, coords || undefined);
+      if (val && !coords) {
+        showError('Location not detected. Turn on GPS to receive nearby bookings.');
+      }
     } catch {
       setIsAvailable(!val);
    showError('Could not update availability. Try again.');

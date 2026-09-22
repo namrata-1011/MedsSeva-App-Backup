@@ -18,6 +18,7 @@ import { PremiumTestCard } from '../../src/components/PremiumTestCard';
 import { PremiumPackageCard } from '../../src/components/PremiumPackageCard';
 import { PrescriptionUploadModal } from '../../src/components/PrescriptionUploadModal';
 import { LocationPickerModal } from '../../src/components/LocationPickerModal';
+import { ServiceAreaBlockModal } from '../../src/components/ServiceAreaBlockModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -46,6 +47,8 @@ export default function HomeScreen() {
 
 const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [isLocationPickerOpen, setLocationPickerOpen] = useState<boolean>(false);
+  const [serviceBlocked, setServiceBlocked] = useState(false);
+  const [detectedPincode, setDetectedPincode] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -73,6 +76,15 @@ const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
         if (geocodes && geocodes.length > 0) {
           const geo = geocodes[0];
           const city = geo.city || geo.district || geo.subregion || geo.region || null;
+          if (geo.postalCode) {
+            setDetectedPincode(geo.postalCode);
+            try {
+              const check = await apiService.checkServiceArea(geo.postalCode);
+              setServiceBlocked(!check?.serviceable);
+            } catch {
+              setServiceBlocked(false);
+            }
+          }
           if (city) {
             setSelectedLocation(city);
             AsyncStorage.setItem('lastKnownLocation', city).catch(() => {});
@@ -977,6 +989,12 @@ const filteredTests = activeCategory === 'all'
           AsyncStorage.setItem('lastKnownLocation', loc).catch(() => {});
         }}
         currentLocation={selectedLocation ?? ''}
+      />
+
+      <ServiceAreaBlockModal
+        visible={serviceBlocked}
+        pincode={detectedPincode}
+        onClose={() => setServiceBlocked(false)}
       />
     </View>
   );

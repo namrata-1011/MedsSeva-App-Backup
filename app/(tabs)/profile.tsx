@@ -24,6 +24,7 @@ import { performLogout } from '../../src/utils/logout';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { updateProfile } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
+import { ensurePhotosPermission } from '../../src/utils/imagePicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen() {
@@ -57,6 +58,11 @@ export default function ProfileScreen() {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       openCamera(status);
     } else {
+      const hasPermission = await ensurePhotosPermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Please allow access to your photo library to upload a profile image.');
+        return;
+      }
       openGallery();
     }
   };

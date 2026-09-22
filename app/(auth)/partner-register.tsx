@@ -88,6 +88,7 @@ export default function PartnerRegisterScreen() {
   const updateField = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
   const otpRefs = React.useRef<(TextInput | null)[]>([]);
+  const [registrationCoords, setRegistrationCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const handleOtpChange = (val: string, i: number) => {
     const newOtp = [...otp];
@@ -110,6 +111,7 @@ export default function PartnerRegisterScreen() {
         return;
       }
       const coords = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setRegistrationCoords({ latitude: coords.coords.latitude, longitude: coords.coords.longitude });
       const geocode = await Location.reverseGeocodeAsync({
         latitude: coords.coords.latitude,
         longitude: coords.coords.longitude,
@@ -361,6 +363,8 @@ export default function PartnerRegisterScreen() {
         pincode: form.pincode.trim(),
         address: form.address.trim(),
         preferredServiceArea: form.preferredServiceArea.trim() || form.city.trim(),
+        latitude: registrationCoords?.latitude,
+        longitude: registrationCoords?.longitude,
         documents: docPayload,
       });
 
@@ -486,7 +490,7 @@ export default function PartnerRegisterScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.fieldLabel}>Service Radius / Area</Text>
           <View style={styles.inputWrap}>
-            <TextInput style={styles.input} placeholder="e.g. 15 km Radius" placeholderTextColor="#94A3B8" value={form.preferredServiceArea} onChangeText={v => updateField('preferredServiceArea', v)} />
+            <TextInput style={styles.input} placeholder="3 km radius from your lab location" placeholderTextColor="#94A3B8" value={form.preferredServiceArea} onChangeText={v => updateField('preferredServiceArea', v)} />
           </View>
         </View>
       </View>

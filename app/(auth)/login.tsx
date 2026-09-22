@@ -9,7 +9,6 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import auth from '@react-native-firebase/auth';
 import { apiService } from '../../src/services/api';
 import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 import { COLORS } from '../../src/theme/theme';
@@ -73,22 +72,16 @@ export default function LoginScreen() {
         return;
       }
 
-      // Trigger Firebase Phone Auth
-      let verificationId = '';
-      try {
-        const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
-        verificationId = confirmation.verificationId || '';
-      } catch (firebaseErr: any) {
-        console.error('Firebase Auth Error:', firebaseErr);
-        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
+      const firebaseResult = await firebaseAuthService.sendPhoneOtp(data.mobile);
+      if (!firebaseResult.success || !firebaseResult.verificationId) {
+        setServerError(firebaseResult.error || 'Failed to send Firebase OTP. Please try again.');
         setIsLoading(false);
         return;
       }
 
-      // Navigate to OTP Screen
       router.push({
         pathname: '/(auth)/otp',
-        params: { mobile: data.mobile, verificationId },
+        params: { mobile: data.mobile, verificationId: firebaseResult.verificationId },
       });
     } catch (error: any) {
       console.error('Check Mobile Error:', error);
