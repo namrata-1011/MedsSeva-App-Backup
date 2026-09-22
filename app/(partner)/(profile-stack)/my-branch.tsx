@@ -10,16 +10,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { apiService } from '@/src/services/api';
 import { COLORS, SHADOWS } from '@/src/theme/theme';
 
-interface Branch {
+interface PartnerProfile {
   id: string;
-  name: string;
-  code: string;
-  line1: string;
-  city: string;
-  state: string;
-  pincode: string;
-  contactNumber?: string;
-  workingHours?: string;
+  labName?: string;
+  ownerName?: string;
+  partnerCode?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  user?: {
+    mobile?: string;
+    email?: string;
+  };
 }
 
 function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
@@ -38,23 +41,25 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
 
 export default function MyBranchScreen() {
   const router = useRouter();
-  const [branch, setBranch] = useState<Branch | null>(null);
+  const [partner, setPartner] = useState<PartnerProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
-    (apiService as any).getPartnerBranch()
-      .then((data: Branch | null) => setBranch(data))
+    (apiService as any).getPartnerProfile()
+      .then((data: PartnerProfile | null) => setPartner(data))
       .catch(() => setHasError(true))
       .finally(() => setIsLoading(false));
   }, []);
+
+  const fullAddress = [partner?.address, partner?.city, partner?.state, partner?.pincode].filter(Boolean).join(', ');
+  const contactNumber = partner?.user?.mobile;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
   
-
-     <ScreenWrapper contentContainerStyle={styles.content}>
+      <ScreenWrapper contentContainerStyle={styles.content}>
         {isLoading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={COLORS.primary} />
@@ -62,13 +67,13 @@ export default function MyBranchScreen() {
         ) : hasError ? (
           <View style={styles.center}>
             <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#EF4444" />
-            <Text style={styles.emptyTitle}>Failed to load branch</Text>
+            <Text style={styles.emptyTitle}>Failed to load branch details</Text>
           </View>
-        ) : !branch ? (
+        ) : !partner?.labName ? (
           <View style={styles.center}>
             <MaterialCommunityIcons name="hospital-building" size={64} color="#CBD5E1" />
-            <Text style={styles.emptyTitle}>No Branch Assigned</Text>
-            <Text style={styles.emptySubtitle}>You have not been assigned to a branch yet. Contact your administrator.</Text>
+            <Text style={styles.emptyTitle}>No Branch Found</Text>
+            <Text style={styles.emptySubtitle}>Your branch details are not available. Please update your profile.</Text>
           </View>
         ) : (
           <>
@@ -76,37 +81,39 @@ export default function MyBranchScreen() {
               <View style={styles.branchIconWrap}>
                 <MaterialCommunityIcons name="hospital-building" size={32} color={COLORS.primary} />
               </View>
-              <Text style={styles.branchName}>{branch.name}</Text>
-              <View style={styles.codeBadge}>
-                <Text style={styles.codeText}>Branch Code: {branch.code}</Text>
-              </View>
+              <Text style={styles.branchName}>{partner.labName}</Text>
+              {partner.partnerCode && (
+                <View style={styles.codeBadge}>
+                  <Text style={styles.codeText}>Branch Code: {partner.partnerCode}</Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>Branch Information</Text>
               <InfoRow
-                icon="map-marker-outline"
-                label="Address"
-                value={[branch.line1, branch.city, branch.state, branch.pincode].filter(Boolean).join(', ')}
+                icon="account-tie-outline"
+                label="Owner / Director"
+                value={partner.ownerName || 'Not specified'}
               />
               <View style={styles.divider} />
               <InfoRow
-                icon="clock-outline"
-                label="Working Hours"
-                value={branch.workingHours || 'Not specified'}
+                icon="map-marker-outline"
+                label="Address"
+                value={fullAddress || 'Not specified'}
               />
               <View style={styles.divider} />
               <InfoRow
                 icon="phone-outline"
                 label="Contact Number"
-                value={branch.contactNumber || 'Not specified'}
+                value={contactNumber || 'Not specified'}
               />
             </View>
 
-            {branch.contactNumber && (
+            {contactNumber && (
               <TouchableOpacity
                 style={styles.callBtn}
-                onPress={() => Linking.openURL(`tel:${branch.contactNumber}`)}
+                onPress={() => Linking.openURL(`tel:${contactNumber}`)}
                 activeOpacity={0.85}
               >
                 <MaterialCommunityIcons name="phone" size={20} color="#fff" />
@@ -114,7 +121,7 @@ export default function MyBranchScreen() {
               </TouchableOpacity>
             )}
           </>
-)}
+        )}
       </ScreenWrapper>
     </View>
   );

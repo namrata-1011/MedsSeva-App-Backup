@@ -52,22 +52,17 @@ export default function LoginScreen() {
         return;
       }
 
-      // Trigger Firebase Phone Auth
-      let verificationId = '';
+      // Send OTP
       try {
-        const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
-        verificationId = confirmation.verificationId || '';
-      } catch (firebaseErr: any) {
-        console.error('Firebase Auth Error:', firebaseErr);
-        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
+        await apiService.sendOtp(data.mobile);
+      } catch (sendErr: any) {
+        setServerError(sendErr.response?.data?.error || 'Failed to send OTP.');
         setIsLoading(false);
         return;
       }
-
-      // Navigate to OTP Screen
       router.push({
         pathname: '/(auth)/otp',
-        params: { mobile: data.mobile, verificationId },
+        params: { mobile: data.mobile },
       });
     } catch (error: any) {
       console.error('Check Mobile Error:', error);

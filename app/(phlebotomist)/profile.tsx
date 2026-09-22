@@ -229,20 +229,19 @@ export default function PhlebotomistProfileScreen() {
           <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Partner Terms & Payout</Text>
 
-            <TouchableOpacity style={styles.infoRow} onPress={() => { setTempCommission(commissionRate); setShowCommissionModal(true); }}>
+            <View style={styles.infoRow}>
               <MaterialCommunityIcons name="percent" size={18} color="#059669" />
               <Text style={styles.infoLabel}>Commission Rate</Text>
               <Text style={[styles.infoValue, { color: '#059669', fontWeight: '900' }]}>{commissionRate}% / Test</Text>
-              <MaterialCommunityIcons name="pencil-outline" size={16} color="#059669" style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity style={styles.infoRow} onPress={() => setShowPayoutModal(true)}>
+            <View style={styles.infoRow}>
               <MaterialCommunityIcons name="calendar-sync" size={18} color="#64748B" />
               <Text style={styles.infoLabel}>Payout Frequency</Text>
               <Text style={styles.infoValue}>
                 {payoutFreq === 'DAILY' ? 'Daily Transfer' : payoutFreq === 'WEEKLY' ? 'Weekly Transfer' : 'Monthly Transfer'}
               </Text>
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
@@ -306,7 +305,7 @@ export default function PhlebotomistProfileScreen() {
           ) : (
             <>
               <MaterialCommunityIcons name="logout" size={20} color="#E11D48" />
-              <Text style={styles.logoutBtnText}>Sign Out from Portal</Text>
+              <Text style={styles.logoutBtnText}>Logout</Text>
             </>
           )}
         </TouchableOpacity>

@@ -36,8 +36,6 @@ export default function DoctorProfileScreen() {
 
   const [isEditVisible, setIsEditVisible] = useState(false);
   const [editForm, setEditForm] = useState({
-    commissionRate: '',
-    paymentCycle: '',
     designation: '',
     qualification: '',
     specialization: ''
@@ -45,8 +43,6 @@ export default function DoctorProfileScreen() {
 
   const handleEditProfile = () => {
     setEditForm({
-      commissionRate: String(data?.doctor?.commissionRate ?? 30),
-      paymentCycle: data?.doctor?.paymentCycle || 'MONTHLY',
       designation: data?.doctor?.designation || '',
       qualification: data?.doctor?.qualification || '',
       specialization: data?.doctor?.specialization || ''
@@ -56,11 +52,6 @@ export default function DoctorProfileScreen() {
 
   const handleSaveProfile = async () => {
     try {
-      const num = parseFloat(editForm.commissionRate);
-      if (isNaN(num) || num < 0 || num > 100) {
-        showError('Commission Rate must be between 0 and 100');
-        return;
-      }
       await apiService.updateDoctorProfile(editForm);
       showSuccess('Profile updated successfully');
       setIsEditVisible(false);
@@ -266,26 +257,24 @@ export default function DoctorProfileScreen() {
             <View style={styles.sectionCard}>
               <Text style={styles.sectionTitle}>Settlement & Commission Terms</Text>
 
-              <TouchableOpacity style={styles.infoRow} onPress={handleEditProfile}>
+              <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="percent" size={18} color="#059669" />
                 <Text style={styles.infoLabel}>Commission Rate</Text>
                 <Text style={[styles.infoValue, { color: '#059669', fontWeight: '900' }]}>
                   {doc?.commissionRate ?? 30}% Per Booking
                 </Text>
-                <MaterialCommunityIcons name="pencil-outline" size={16} color="#059669" style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity style={styles.infoRow} onPress={handleEditProfile}>
+              <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="calendar-sync" size={18} color="#64748B" />
                 <Text style={styles.infoLabel}>Payout Settlement Cycle</Text>
                 <Text style={styles.infoValue}>{doc?.paymentCycle || 'MONTHLY'}</Text>
-                <MaterialCommunityIcons name="pencil-outline" size={16} color="#059669" style={{ marginLeft: 6 }} />
-              </TouchableOpacity>
+              </View>
 
               <View style={styles.infoRow}>
                 <MaterialCommunityIcons name="hospital-building" size={18} color="#64748B" />
                 <Text style={styles.infoLabel}>Associated Lab Branch</Text>
-                <Text style={styles.infoValue}>{doc?.branch?.name || 'Central Diagnostic Lab'}</Text>
+                <Text style={styles.infoValue}>{doc?.branch?.name || 'Not Assigned'}</Text>
               </View>
             </View>
 
@@ -314,27 +303,6 @@ export default function DoctorProfileScreen() {
             <Text style={styles.modalTitle}>Edit Profile Details</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-              <Text style={styles.inputLabel}>Commission Rate (%)</Text>
-              <TextInput
-                style={styles.textInput}
-                value={editForm.commissionRate}
-                onChangeText={(val: string) => setEditForm({ ...editForm, commissionRate: val })}
-                keyboardType="numeric"
-              />
-
-              <Text style={styles.inputLabel}>Payout Settlement Cycle</Text>
-              <View style={styles.cycleRow}>
-                {['DAILY', 'WEEKLY', 'MONTHLY'].map((c: string) => (
-                  <TouchableOpacity 
-                    key={c} 
-                    style={[styles.cycleBtn, editForm.paymentCycle === c && styles.cycleBtnActive]}
-                    onPress={() => setEditForm({ ...editForm, paymentCycle: c })}
-                  >
-                    <Text style={[styles.cycleBtnText, editForm.paymentCycle === c && styles.cycleBtnTextActive]}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
               <Text style={styles.inputLabel}>Designation</Text>
               <TextInput
                 style={styles.textInput}

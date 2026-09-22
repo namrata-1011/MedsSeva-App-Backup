@@ -23,7 +23,7 @@ const PRIMARY = COLORS.primary;
 
 const registerSchema = yup.object().shape({
   name: yup.string().required('Full name is required').min(3, 'Name is too short'),
-  email: yup.string().email('Invalid email format').required('Email is required'),
+  email: yup.string().transform((value, originalValue) => originalValue === '' ? null : value).nullable().email('Invalid email format').optional(),
   mobile: yup.string()
     .required('Mobile number is required')
     .matches(/^[0-9]{10}$/, 'Mobile number must be exactly 10 digits'),
@@ -88,20 +88,17 @@ export default function RegisterScreen() {
       });
 
       if (response.requiresMobileVerification || response.requiresEmailVerification) {
-        let verificationId = '';
         try {
-          const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
-          verificationId = confirmation.verificationId || '';
-        } catch (firebaseErr: any) {
-          console.error('Firebase Auth Error in Register:', firebaseErr);
-          setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
+          await apiService.sendOtp(data.mobile);
+        } catch (sendErr: any) {
+          setServerError(sendErr.response?.data?.error || 'Failed to send OTP. Please try again.');
           setIsLoading(false);
           return;
         }
 
         router.push({
           pathname: '/(auth)/otp',
-          params: { mobile: data.mobile, verificationId },
+          params: { mobile: data.mobile },
         });
         return;
       }
@@ -137,19 +134,17 @@ export default function RegisterScreen() {
         } catch (loginError: any) {
           const loginErrData = loginError.response?.data;
           if (loginErrData?.requiresEmailVerification || loginErrData?.requiresMobileVerification) {
-            let verificationId = '';
             try {
-              const confirmation = await auth().signInWithPhoneNumber(`+91${data.mobile}`);
-              verificationId = confirmation.verificationId || '';
-            } catch (firebaseErr: any) {
-              console.error('Firebase Auth Error in Login Fallback:', firebaseErr);
-              setServerError(firebaseErr.message || 'Failed to send verification code via Firebase.');
+              await apiService.sendOtp(data.mobile);
+            } catch (sendErr: any) {
+              console.error('Send OTP Error in Login Fallback:', sendErr);
+              setServerError(sendErr.response?.data?.error || 'Failed to send OTP.');
               setIsLoading(false);
               return;
             }
             router.push({
               pathname: '/(auth)/otp',
-              params: { mobile: data.mobile, verificationId },
+              params: { mobile: data.mobile },
             });
             return;
           }
@@ -236,7 +231,9 @@ return (
           />
           {errors.name && <Text style={styles.errorText}>{errors.name.message}</Text>}
 
-          <Text style={styles.fieldLabel}>Email Address</Text>
+          <Text style={styles.fieldLabel}>
+            Email Address <Text style={styles.optionalTag}>(Optional)</Text>
+          </Text>
           <Controller
             control={control}
             name="email"

@@ -25,7 +25,7 @@ export default function OTPScreen() {
   const [step, setStep] = useState<'mobile' | 'otp'>(paramMobile ? 'otp' : 'mobile');
   const [mobileNumber, setMobileNumber] = useState(paramMobile || '');
   const [verificationId, setVerificationId] = useState(paramVerificationId || '');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState(['', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(30);
@@ -77,16 +77,14 @@ export default function OTPScreen() {
         return;
       }
       try {
-        const confirmation = await auth().signInWithPhoneNumber(`+91${mobileNumber}`);
-        setVerificationId(confirmation.verificationId || '');
-      } catch (firebaseErr: any) {
-        console.error('Firebase Auth Error:', firebaseErr);
-        setServerError(firebaseErr.message || 'Failed to send verification code via Firebase. Please try again.');
+        await apiService.sendOtp(mobileNumber);
+      } catch (sendErr: any) {
+        setServerError(sendErr.message || 'Failed to send OTP. Please try again.');
         setIsSending(false);
         return;
       }
       setStep('otp');
-      setOtp(['', '', '', '', '', '']);
+      setOtp(['', '', '', '']);
     } catch {
       setServerError('Failed to verify mobile number. Please try again.');
     } finally {
@@ -97,21 +95,21 @@ export default function OTPScreen() {
   const handleOtpChange = (value: string, index: number) => {
     const cleanVal = value.replace(/[^0-9]/g, '');
 
-    // Handle SMS autofill or pasted 6-digit OTP
+    // Handle SMS autofill or pasted 4-digit OTP
     if (cleanVal.length > 1) {
-      const digits = cleanVal.slice(0, 6).split('');
-      const newOtp = ['', '', '', '', '', ''];
+      const digits = cleanVal.slice(0, 4).split('');
+      const newOtp = ['', '', '', ''];
       digits.forEach((d, i) => { newOtp[i] = d; });
       setOtp(newOtp);
       if (otpError) setOtpError('');
 
-      if (digits.length === 6) {
-        inputRefs.current[5]?.focus();
+      if (digits.length === 4) {
+        inputRefs.current[3]?.focus();
         setTimeout(() => {
           verifyOtp(digits.join(''));
         }, 150);
       } else {
-        inputRefs.current[Math.min(digits.length, 5)]?.focus();
+        inputRefs.current[Math.min(digits.length, 3)]?.focus();
       }
       return;
     }
@@ -121,11 +119,11 @@ export default function OTPScreen() {
     setOtp(newOtp);
     if (otpError) setOtpError('');
 
-    if (cleanVal && index < 5) {
+    if (cleanVal && index < 3) {
       inputRefs.current[index + 1]?.focus();
-    } else if (cleanVal && index === 5) {
+    } else if (cleanVal && index === 3) {
       const fullCode = newOtp.join('');
-      if (fullCode.length === 6) {
+      if (fullCode.length === 4) {
         setTimeout(() => {
           verifyOtp(fullCode);
         }, 150);
@@ -141,32 +139,21 @@ export default function OTPScreen() {
 
   const handleResend = async () => {
     if (!canResend) return;
-    setOtp(['', '', '', '', '', '']);
+    setOtp(['', '', '', '']);
     setOtpError('');
     await handleSendOtp();
   };
 
   const verifyOtp = async (codeOverride?: string) => {
     const otpValue = typeof codeOverride === 'string' ? codeOverride : otp.join('');
-    if (otpValue.length !== 6) return;
+    if (otpValue.length !== 4) return;
     setOtpError('');
 
     setIsLoading(true);
     try {
-      if (!verificationId) throw new Error("No verification ID. Please request OTP again.");
-      const credential = auth.PhoneAuthProvider.credential(verificationId, otpValue);
-      const userCredential = await auth().signInWithCredential(credential);
-      const firebaseIdToken = await userCredential.user.getIdToken();
-      console.log('Firebase ID Token:', firebaseIdToken);
-
-      // Temporarily blocking backend login logic because backend does not support Firebase Token Verification yet.
-      setOtpError('Firebase Authentication Successful! (Backend login bypassed because backend needs update to verify Firebase tokens)');
-      
-      /*
+      // Use API Service for dummy/real OTP
       const loginResult = await apiService.loginWithOtp(mobileNumber, otpValue);
-      */
-      // Un-comment below when backend is updated
-      /*
+
       const userObj = {
         id: loginResult.user.id,
         name: loginResult.user.name,
@@ -229,9 +216,8 @@ export default function OTPScreen() {
       } else {
         router.replace('/(tabs)' as any);
       }
-      */
     } catch (error: any) {
-      console.error('Firebase Verify Error:', error);
+      console.error('Verify Error:', error);
       const msg = error.message || error.response?.data?.error || 'Authentication failed. Please try again.';
       setOtpError(msg);
     } finally {
@@ -375,9 +361,9 @@ export default function OTPScreen() {
               </View>
 
               <TouchableOpacity
-                style={[styles.primaryBtn, (isLoading || otp.join('').length !== 6) && styles.btnDisabled]}
+                style={[styles.primaryBtn, (isLoading || otp.join('').length !== 4) && styles.btnDisabled]}
                 onPress={() => verifyOtp()}
-                disabled={isLoading || otp.join('').length !== 6}
+                disabled={isLoading || otp.join('').length !== 4}
                 activeOpacity={0.85}
               >
                 {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify & Login</Text>}
