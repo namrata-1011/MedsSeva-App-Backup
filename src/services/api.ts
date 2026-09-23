@@ -96,6 +96,7 @@ checkMobile: (mobile: string) => api.get(`/auth/check-mobile?mobile=${encodeURIC
   sendOtp: (mobile: string) => api.post('/auth/otp/send', { mobile }).then(res => res.data),
   verifyOtp: (mobile: string, otp: string) => api.post('/auth/otp/verify', { mobile, otp }).then(res => res.data),
   loginWithOtp: (mobile: string, otp: string, idToken?: string) => api.post('/auth/otp/login', { mobile, otp, idToken }).then(res => res.data),
+  demoLogin: (role: string) => api.post('/auth/demo-login', { role }).then(res => res.data),
   loginWithFirebaseToken: (idToken: string) => api.post('/auth/firebase/login', { idToken }).then(res => res.data),
   registerWithFirebaseToken: (idToken: string, data: { name: string; email: string; referralCode?: string }) =>
     api.post('/auth/firebase/register', { idToken, ...data }).then(res => res.data),
@@ -296,7 +297,10 @@ submitRating: (data: { bookingId: string; rating: number; review?: string }) =>
     patientAge?: number;
     patientGender?: string;
     testIds?: string[];
+    packageIds?: string[];
     address?: string;
+    latitude?: number;
+    longitude?: number;
     notes?: string;
   }) => api.post('/doctors/pickup-request', data).then(res => res.data),
   doctorDirectSampleHandover: (data: {
@@ -306,6 +310,10 @@ submitRating: (data: { bookingId: string; rating: number; review?: string }) =>
     patientAge?: number;
     patientGender?: string;
     testIds?: string[];
+    packageIds?: string[];
+    address?: string;
+    latitude?: number;
+    longitude?: number;
     sampleType?: string;
     notes?: string;
   }) => api.post('/doctors/direct-handover', data).then(res => res.data),

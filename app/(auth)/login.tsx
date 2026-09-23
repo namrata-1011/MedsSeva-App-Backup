@@ -9,6 +9,10 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useDispatch } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tokenStorage } from '../../src/utils/tokenStorage';
+import { loginSuccess } from '../../src/store/slices/authSlice';
 import { apiService } from '../../src/services/api';
 import { firebaseAuthService } from '../../src/services/firebaseAuthService';
 import { COLORS } from '../../src/theme/theme';
@@ -25,6 +29,7 @@ type LoginFormData = yup.InferType<typeof loginSchema>;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isUnregistered, setIsUnregistered] = useState(false);
@@ -91,6 +96,7 @@ export default function LoginScreen() {
       setIsLoading(false);
     }
   };
+
 
   return (
     <View style={styles.container}>
@@ -176,6 +182,7 @@ export default function LoginScreen() {
               </View>
             )}
           </TouchableOpacity>
+
 
           <View style={styles.registerRow}>
             <Text style={styles.registerText}>Don't have an account? </Text>

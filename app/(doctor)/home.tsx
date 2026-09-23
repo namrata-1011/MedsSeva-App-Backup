@@ -148,39 +148,7 @@ export default function DoctorHomeScreen() {
           </View>
         </View>
 
-        {/* Quick Sample Action Cards */}
-        <Text style={styles.sectionHeading}>Sample Collection & Orders</Text>
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.pickupBtn]}
-            onPress={() => router.navigate('/(doctor)/new-sample?defaultMode=PICKUP&lockMode=true')}
-            activeOpacity={0.88}
-          >
-            <View style={styles.actionIconBox}>
-              <MaterialCommunityIcons name="moped" size={26} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionBtnTitle}>Book Request</Text>
-              <Text style={styles.actionBtnSub}>Request MedsSeva phlebotomist to collect sample from clinic/home</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionBtn, styles.handoverBtn]}
-            onPress={() => router.navigate('/(doctor)/new-sample?defaultMode=HANDOVER&lockMode=true')}
-            activeOpacity={0.88}
-          >
-            <View style={[styles.actionIconBox, { backgroundColor: '#0D9488' }]}>
-              <MaterialCommunityIcons name="flask-outline" size={26} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.actionBtnTitle}>Already Collected</Text>
-              <Text style={styles.actionBtnSub}>Hand over collected clinic sample directly to testing lab</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+        {/* Quick Sample Action Cards (Removed as per requirements) */}
 
         {/* Period Filter Tabs */}
         <View style={styles.periodRow}>

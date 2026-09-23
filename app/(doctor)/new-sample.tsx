@@ -19,11 +19,19 @@ export default function DoctorNewSampleScreen() {
   const initialMode = (params.defaultMode || params.mode) === 'HANDOVER' ? 'HANDOVER' : 'PICKUP';
 
   const [mode, setMode] = useState<'PICKUP' | 'HANDOVER'>(initialMode);
+  useEffect(() => {
+    const newMode = (params.defaultMode || params.mode) === 'HANDOVER' ? 'HANDOVER' : 'PICKUP';
+    setMode(newMode);
+  }, [params.defaultMode, params.mode]);
+
   const [patientName, setPatientName] = useState('');
   const [patientMobile, setPatientMobile] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [patientGender, setPatientGender] = useState<'Male' | 'Female' | 'Other'>('Male');
   const [address, setAddress] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [notes, setNotes] = useState('');
 
   // Branches for Direct Handover
@@ -33,8 +41,11 @@ export default function DoctorNewSampleScreen() {
 
   // Tests Catalog & Selection
   const [availableTests, setAvailableTests] = useState<any[]>([]);
+  const [availablePackages, setAvailablePackages] = useState<any[]>([]);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+  const [selectedPackageIds, setSelectedPackageIds] = useState<string[]>([]);
   const [testSearch, setTestSearch] = useState('');
+  const [catalogTab, setCatalogTab] = useState<'TESTS' | 'PACKAGES'>('TESTS');
 
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,11 +71,13 @@ export default function DoctorNewSampleScreen() {
           console.warn('Location permission error', e);
         }
 
-        const [testsRes, branchesRes] = await Promise.all([
+        const [testsRes, packagesRes, branchesRes] = await Promise.all([
           apiService.getAllTests(),
+          apiService.getAllPackages ? apiService.getAllPackages() : Promise.resolve([]),
           apiService.getBranches ? apiService.getBranches({ lat, lng }) : Promise.resolve([]),
         ]);
         setAvailableTests(Array.isArray(testsRes) ? testsRes : testsRes?.tests || []);
+        setAvailablePackages(Array.isArray(packagesRes) ? packagesRes : packagesRes?.packages || []);
         const branchesData = Array.isArray(branchesRes) ? branchesRes : (branchesRes?.data || []);
         if (branchesData.length > 0) {
           setBranches(branchesData);
@@ -84,9 +97,66 @@ export default function DoctorNewSampleScreen() {
     );
   };
 
+  const togglePackage = (packageId: string) => {
+    setSelectedPackageIds(prev =>
+      prev.includes(packageId) ? prev.filter(id => id !== packageId) : [...prev, packageId]
+    );
+  };
+
   const selectedTestsList = availableTests.filter(t => selectedTestIds.includes(t.id));
-  const totalEstimatedPrice = selectedTestsList.reduce((sum, t) => sum + (t.price || 0), 0);
+  const selectedPackagesList = availablePackages.filter(p => selectedPackageIds.includes(p.id));
+  const totalEstimatedPrice = 
+    selectedTestsList.reduce((sum, t) => sum + (t.price || 0), 0) + 
+    selectedPackagesList.reduce((sum, p) => sum + (p.price || 0), 0);
   const estimatedCommission = Math.round((totalEstimatedPrice * 30) / 100);
+
+  const fetchLocation = async () => {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        showError('Permission to access location was denied');
+        setIsLocating(false);
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setLatitude(loc.coords.latitude);
+      setLongitude(loc.coords.longitude);
+
+      const geo = await Location.reverseGeocodeAsync({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+
+      if (geo && geo.length > 0) {
+        const addrObj = geo[0];
+        const addrText = [addrObj.name, addrObj.street, addrObj.city, addrObj.region, addrObj.postalCode]
+          .filter(Boolean)
+          .join(', ');
+        setAddress(addrText);
+        showSuccess('Location detected successfully');
+      } else {
+        showSuccess('GPS coordinates captured');
+      }
+    } catch (error) {
+      console.error('Error fetching location', error);
+      showError('Failed to detect location');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const resetForm = () => {
+    setPatientName('');
+    setPatientMobile('');
+    setPatientAge('');
+    setPatientGender('Male');
+    setAddress('');
+    setNotes('');
+    setSelectedTestIds([]);
+    setSelectedPackageIds([]);
+  };
 
   const handleSubmit = async () => {
     if (!patientName.trim() || !patientMobile.trim()) {
@@ -98,8 +168,8 @@ export default function DoctorNewSampleScreen() {
       showError('Please enter a valid 10-digit mobile number.');
       return;
     }
-    if (selectedTestIds.length === 0) {
-      showError('Please select at least one test to order.');
+    if (selectedTestIds.length === 0 && selectedPackageIds.length === 0) {
+      showError('Please select at least one test or package to order.');
       return;
     }
     if (mode === 'HANDOVER' && !selectedBranchId) {
@@ -116,7 +186,10 @@ export default function DoctorNewSampleScreen() {
           patientAge: patientAge ? Number(patientAge) : undefined,
           patientGender,
           testIds: selectedTestIds,
+          packageIds: selectedPackageIds,
           address: address.trim() || 'Doctor Clinic Location',
+          latitude: latitude || undefined,
+          longitude: longitude || undefined,
           notes: notes.trim() || undefined,
         });
         showSuccess('Sample pickup request dispatched! Phlebotomists will collect shortly.');
@@ -128,15 +201,21 @@ export default function DoctorNewSampleScreen() {
           patientAge: patientAge ? Number(patientAge) : undefined,
           patientGender,
           testIds: selectedTestIds,
+          packageIds: selectedPackageIds,
+          address: address.trim() || 'Direct Lab Handover',
+          latitude: latitude || undefined,
+          longitude: longitude || undefined,
           sampleType: 'Blood / Serum',
           notes: notes.trim() || 'Direct clinic collection',
         });
         showSuccess('Direct sample handover logged. Sample marked as delivered to lab.');
       }
+      resetForm();
       router.navigate('/(doctor)/home');
     } catch (err: any) {
-      console.error('Submission failed', err);
-      showError(err?.response?.data?.error || 'Failed to submit test request');
+      console.error('Submission failed', err, err.response?.data);
+      const errMsg = err?.response?.data?.error || (err.response?.data ? JSON.stringify(err.response.data) : err.message);
+      showError(`Error: ${errMsg}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -168,38 +247,36 @@ export default function DoctorNewSampleScreen() {
           <Text style={styles.headerTitle}>New Patient Test Request</Text>
         </View>
 
-        {/* Mode Selector Toggle (Hidden if lockMode is true) */}
-        {params.lockMode !== 'true' && (
-          <View style={styles.modeToggle}>
-            <TouchableOpacity
-              style={[styles.modeTab, mode === 'PICKUP' && styles.modeTabActive]}
-              onPress={() => setMode('PICKUP')}
-            >
-              <MaterialCommunityIcons
-                name="moped"
-                size={18}
-                color={mode === 'PICKUP' ? '#FFFFFF' : '#64748B'}
-              />
-              <Text style={[styles.modeTabText, mode === 'PICKUP' && styles.modeTabTextActive]}>
-                Book Request
-              </Text>
-            </TouchableOpacity>
+        {/* Mode Selector Toggle */}
+        <View style={styles.modeToggle}>
+          <TouchableOpacity
+            style={[styles.modeTab, mode === 'PICKUP' && styles.modeTabActive]}
+            onPress={() => { setMode('PICKUP'); resetForm(); }}
+          >
+            <MaterialCommunityIcons
+              name="moped"
+              size={18}
+              color={mode === 'PICKUP' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text style={[styles.modeTabText, mode === 'PICKUP' && styles.modeTabTextActive]}>
+              Book Request
+            </Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.modeTab, mode === 'HANDOVER' && styles.modeTabActive]}
-              onPress={() => setMode('HANDOVER')}
-            >
-              <MaterialCommunityIcons
-                name="flask-outline"
-                size={18}
-                color={mode === 'HANDOVER' ? '#FFFFFF' : '#64748B'}
-              />
-              <Text style={[styles.modeTabText, mode === 'HANDOVER' && styles.modeTabTextActive]}>
-                Already Collected
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            style={[styles.modeTab, mode === 'HANDOVER' && styles.modeTabActive]}
+            onPress={() => { setMode('HANDOVER'); resetForm(); }}
+          >
+            <MaterialCommunityIcons
+              name="flask-outline"
+              size={18}
+              color={mode === 'HANDOVER' ? '#FFFFFF' : '#64748B'}
+            />
+            <Text style={[styles.modeTabText, mode === 'HANDOVER' && styles.modeTabTextActive]}>
+              Dispatch
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.infoBox}>
           <MaterialCommunityIcons
@@ -271,15 +348,24 @@ export default function DoctorNewSampleScreen() {
 
           {mode === 'PICKUP' ? (
             <>
-              <Text style={styles.fieldLabel}>Collection Address</Text>
-              <TextInput
-                style={[styles.input, { height: 60 }]}
-                placeholder="Clinic Address or Patient Home Location"
-                placeholderTextColor="#94A3B8"
-                multiline
-                value={address}
-                onChangeText={setAddress}
-              />
+              <Text style={styles.fieldLabel}>Collection Address *</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, height: 60, marginBottom: 0 }]}
+                  placeholder="Clinic Address or Patient Home Location"
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={address}
+                  onChangeText={setAddress}
+                />
+                <TouchableOpacity style={styles.locationBtn} onPress={fetchLocation} disabled={isLocating}>
+                  {isLocating ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </>
           ) : (
             <>
@@ -334,6 +420,25 @@ export default function DoctorNewSampleScreen() {
               ) : (
                 <Text style={styles.helperNotice}>Default Central Diagnostic Lab</Text>
               )}
+              
+              <Text style={styles.fieldLabel}>Clinic Collection Address</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, height: 60, marginBottom: 0 }]}
+                  placeholder="Your Clinic Address"
+                  placeholderTextColor="#94A3B8"
+                  multiline
+                  value={address}
+                  onChangeText={setAddress}
+                />
+                <TouchableOpacity style={styles.locationBtn} onPress={fetchLocation} disabled={isLocating}>
+                  {isLocating ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <MaterialCommunityIcons name="crosshairs-gps" size={24} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              </View>
             </>
           )}
 
@@ -350,13 +455,28 @@ export default function DoctorNewSampleScreen() {
         {/* Test Selection Section */}
         <View style={styles.formCard}>
           <View style={styles.cardHeadingRow}>
-            <Text style={styles.cardHeading}>2. Select Diagnostic Tests</Text>
-            <Text style={styles.selectedCountBadge}>{selectedTestIds.length} Selected</Text>
+            <Text style={[styles.cardHeading, { marginBottom: 0, flexShrink: 1, marginRight: 8 }]}>2. Select Diagnostic Tests & Packages</Text>
+            <Text style={styles.selectedCountBadge}>{selectedTestIds.length + selectedPackageIds.length} Selected</Text>
+          </View>
+
+          <View style={styles.catalogToggle}>
+            <TouchableOpacity 
+              style={[styles.catalogTab, catalogTab === 'TESTS' && styles.catalogTabActive]}
+              onPress={() => setCatalogTab('TESTS')}
+            >
+              <Text style={[styles.catalogTabText, catalogTab === 'TESTS' && styles.catalogTabTextActive]}>Tests ({availableTests.length})</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.catalogTab, catalogTab === 'PACKAGES' && styles.catalogTabActive]}
+              onPress={() => setCatalogTab('PACKAGES')}
+            >
+              <Text style={[styles.catalogTabText, catalogTab === 'PACKAGES' && styles.catalogTabTextActive]}>Packages ({availablePackages.length})</Text>
+            </TouchableOpacity>
           </View>
 
           <TextInput
             style={styles.searchInput}
-            placeholder="Search CBC, Thyroid, HbA1c..."
+            placeholder={catalogTab === 'TESTS' ? "Search CBC, Thyroid..." : "Search Packages..."}
             placeholderTextColor="#94A3B8"
             value={testSearch}
             onChangeText={setTestSearch}
@@ -366,40 +486,64 @@ export default function DoctorNewSampleScreen() {
             <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: 15 }} />
           ) : (
             <ScrollView style={styles.testsListScroll} nestedScrollEnabled>
-              {filteredTests.slice(0, 15).map(t => {
-                const isSelected = selectedTestIds.includes(t.id);
-                return (
-                  <TouchableOpacity
-                    key={t.id}
-                    style={[styles.testItem, isSelected && styles.testItemActive]}
-                    onPress={() => toggleTest(t.id)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                      size={20}
-                      color={isSelected ? '#006D6F' : '#94A3B8'}
-                    />
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={[styles.testName, isSelected && styles.testNameActive]}>{t.name}</Text>
-                      {t.category && (
-                        <Text style={styles.testCat}>
-                          {typeof t.category === 'object' ? t.category?.name : t.category}
-                        </Text>
-                      )}
-                    </View>
-                    <Text style={styles.testPrice}>₹{t.price || 0}</Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {catalogTab === 'TESTS' ? (
+                filteredTests.slice(0, 15).map(t => {
+                  const isSelected = selectedTestIds.includes(t.id);
+                  return (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.testItem, isSelected && styles.testItemActive]}
+                      onPress={() => toggleTest(t.id)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                        size={20}
+                        color={isSelected ? '#006D6F' : '#94A3B8'}
+                      />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.testName, isSelected && styles.testNameActive]}>{t.name}</Text>
+                        {t.category && (
+                          <Text style={styles.testCat}>
+                            {typeof t.category === 'object' ? t.category?.name : t.category}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={styles.testPrice}>₹{t.price || 0}</Text>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                availablePackages.filter(p => (p.name?.toLowerCase() || '').includes(testSearch.toLowerCase())).slice(0, 15).map(p => {
+                  const isSelected = selectedPackageIds.includes(p.id);
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.testItem, isSelected && styles.testItemActive]}
+                      onPress={() => togglePackage(p.id)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={isSelected ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                        size={20}
+                        color={isSelected ? '#006D6F' : '#94A3B8'}
+                      />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.testName, isSelected && styles.testNameActive]}>{p.name}</Text>
+                      </View>
+                      <Text style={styles.testPrice}>₹{p.price || 0}</Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </ScrollView>
           )}
 
           {/* Pricing & Commission Preview */}
-          {selectedTestIds.length > 0 && (
+          {(selectedTestIds.length > 0 || selectedPackageIds.length > 0) && (
             <View style={styles.priceSummaryBox}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total Test Billing</Text>
+                <Text style={styles.summaryLabel}>Total Billing</Text>
                 <Text style={styles.summaryValue}>₹{totalEstimatedPrice}</Text>
               </View>
               <View style={styles.summaryRow}>
@@ -432,7 +576,7 @@ export default function DoctorNewSampleScreen() {
                 style={{ marginRight: 8 }}
               />
               <Text style={styles.submitBtnText}>
-                {mode === 'PICKUP' ? 'Book Request' : 'Already Collected'}
+                {mode === 'PICKUP' ? 'Book Request' : 'Dispatch'}
               </Text>
             </>
           )}
@@ -621,4 +765,44 @@ const styles = StyleSheet.create({
     ...SHADOWS.soft,
   },
   submitBtnText: { fontSize: 16, fontWeight: '900', color: '#FFFFFF' },
+  
+  locationBtn: {
+    backgroundColor: '#0F766E',
+    width: 48,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  catalogToggle: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 4,
+  },
+  catalogTab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  catalogTabActive: {
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  catalogTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  catalogTabTextActive: {
+    color: '#0F766E',
+    fontWeight: '700',
+  },
 });

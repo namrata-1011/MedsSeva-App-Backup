@@ -74,6 +74,7 @@ export default function PhlebotomistLoginScreen() {
     }
   };
 
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
@@ -132,6 +133,7 @@ export default function PhlebotomistLoginScreen() {
               </View>
             )}
           </TouchableOpacity>
+
 
           <View style={styles.registerRow}>
             <Text style={styles.registerText}>Don't have a partner account? </Text>

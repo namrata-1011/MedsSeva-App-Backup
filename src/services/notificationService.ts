@@ -34,7 +34,7 @@ export const ensureAndroidChannels = async (): Promise<void> => {
         importance: c.importance,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#006D6F',
-        sound: 'default',
+        sound: true,
       })
     )
   );

@@ -12,6 +12,7 @@ import { COLORS, SHADOWS } from '../../../src/theme/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   
   const handleDeleteAccount = () => {
     Alert.alert(
@@ -43,20 +44,38 @@ export default function SettingsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={currentColors.bg} />
       <ScreenWrapper contentContainerStyle={[styles.content, { backgroundColor: currentColors.bg }]}>
         
-        {/* Account Management Section */}
+        {/* App Settings Section */}
         <View style={[styles.section, { backgroundColor: currentColors.card, borderColor: currentColors.border }]}>
           <View style={styles.sectionTitleRow}>
             <View style={[styles.sectionIcon, { backgroundColor: currentColors.iconBg }]}>
-              <MaterialCommunityIcons name="account-cog-outline" size={18} color={COLORS.primary} />
+              <MaterialCommunityIcons name="cellphone-cog" size={18} color={COLORS.primary} />
             </View>
-            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>Account Management</Text>
+            <Text style={[styles.sectionTitle, { color: currentColors.text }]}>App Settings</Text>
           </View>
 
-          <TouchableOpacity style={[styles.destructiveBtn, { backgroundColor: isDark ? '#3F1616' : '#FEF2F2', borderColor: isDark ? '#EF4444' : '#FEE2E2' }]} onPress={handleDeleteAccount} activeOpacity={0.7}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Push Notifications</Text>
+              <Text style={styles.settingDesc}>Receive booking updates and alerts</Text>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={setNotificationsEnabled}
+              trackColor={{ false: '#E2E8F0', true: COLORS.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+
+        </View>
+
+        {/* Delete Account Section */}
+        <View style={[styles.section, { backgroundColor: currentColors.card, borderColor: currentColors.border, padding: 12 }]}>
+          <TouchableOpacity style={[styles.destructiveBtn, { backgroundColor: '#FEF2F2', borderColor: '#FEE2E2' }]} onPress={handleDeleteAccount} activeOpacity={0.7}>
             <MaterialCommunityIcons name="delete-outline" size={20} color="#EF4444" />
-            <Text style={styles.destructiveBtnText}>Request Account Deletion</Text>
+            <Text style={styles.destructiveBtnText}>Delete Account</Text>
           </TouchableOpacity>
         </View>
+
 
       </ScreenWrapper>
     </View>
