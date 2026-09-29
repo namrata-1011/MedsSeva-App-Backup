@@ -11,6 +11,7 @@ import { RootState } from '../../src/store';
 import { useFocusEffect } from 'expo-router';
 import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
+import { isPhlebotomistEmployee } from '../../src/utils/userUtils';
 
 interface HistoryItem {
   id: string;
@@ -26,14 +27,7 @@ interface HistoryItem {
 export default function PhlebotomistHistoryScreen() {
   const insets = useSafeAreaInsets();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
-    user?.isEmployee === true ||
-    user?.phlebotomistType === 'EMPLOYEE' ||
-    user?.userType === 'STAFF' ||
-    user?.userType === 'EMPLOYEE' ||
-    user?.adminUser ||
-    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
-  );
+  const isEmployee = isPhlebotomistEmployee(user);
   const isFreelancer = !isEmployee;
 
   const [history, setHistory] = useState<HistoryItem[]>([]);

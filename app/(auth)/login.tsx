@@ -78,15 +78,15 @@ export default function LoginScreen() {
       }
 
       const firebaseResult = await firebaseAuthService.sendPhoneOtp(data.mobile);
-      if (!firebaseResult.success || !firebaseResult.verificationId) {
-        setServerError(firebaseResult.error || 'Failed to send Firebase OTP. Please try again.');
-        setIsLoading(false);
-        return;
+      let verificationId = firebaseResult.verificationId || '';
+      if (!firebaseResult.success || !verificationId) {
+        console.warn('[AUTH] Firebase sendPhoneOtp failed, using fallback OTP:', firebaseResult.error);
+        verificationId = 'backend-otp';
       }
 
       router.push({
         pathname: '/(auth)/otp',
-        params: { mobile: data.mobile, verificationId: firebaseResult.verificationId },
+        params: { mobile: data.mobile, verificationId },
       });
     } catch (error: any) {
       console.error('Check Mobile Error:', error);

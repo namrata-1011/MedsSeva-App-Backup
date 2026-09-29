@@ -28,7 +28,7 @@ export const firebaseAuthService = {
         verificationId: confirmationResult.verificationId || '',
       };
     } catch (err: any) {
-      console.error('[FirebaseAuth] Error sending phone OTP:', err);
+      console.warn('[FirebaseAuth] Error sending phone OTP:', err);
       confirmationResult = null;
       return {
         success: false,
@@ -69,7 +69,7 @@ export const firebaseAuthService = {
       const idToken = await userCredential.user.getIdToken(true);
       return { success: true, idToken };
     } catch (err: any) {
-      console.error('[FirebaseAuth] Error confirming OTP:', err);
+      console.warn('[FirebaseAuth] Error confirming OTP:', err);
       let errorMsg = 'Invalid OTP code. Please try again.';
       if (err?.code === 'auth/invalid-verification-code') {
         errorMsg = 'Incorrect OTP entered. Please check and re-enter.';

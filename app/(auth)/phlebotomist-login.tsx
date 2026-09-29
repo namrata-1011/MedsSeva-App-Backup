@@ -52,10 +52,10 @@ export default function PhlebotomistLoginScreen() {
       }
 
       const firebaseResult = await firebaseAuthService.sendPhoneOtp(cleanMobile);
-      if (!firebaseResult.success || !firebaseResult.verificationId) {
-        setServerError(firebaseResult.error || 'Failed to send Firebase OTP. Please try again.');
-        setIsLoading(false);
-        return;
+      let verificationId = firebaseResult.verificationId || '';
+      if (!firebaseResult.success || !verificationId) {
+        console.warn('[AUTH] Firebase sendPhoneOtp failed, using fallback OTP:', firebaseResult.error);
+        verificationId = 'backend-otp';
       }
 
       router.push({
@@ -63,7 +63,7 @@ export default function PhlebotomistLoginScreen() {
         params: {
           mobile: cleanMobile,
           expectedRole: 'EXECUTIVE',
-          verificationId: firebaseResult.verificationId,
+          verificationId,
         },
       });
     } catch (error: any) {

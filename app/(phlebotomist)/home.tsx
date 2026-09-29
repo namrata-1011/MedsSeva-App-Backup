@@ -16,6 +16,7 @@ import { getCurrentCoordinates } from '../../src/utils/location';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
 import { NotificationCenter } from '../../src/components/NotificationCenter';
 import { Image } from 'expo-image';
+import { isPhlebotomistEmployee } from '../../src/utils/userUtils';
 
 interface BookingRequest {
   id: string;
@@ -42,14 +43,7 @@ export default function PhlebotomistHomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
-    user?.isEmployee === true ||
-    user?.phlebotomistType === 'EMPLOYEE' ||
-    user?.userType === 'STAFF' ||
-    user?.userType === 'EMPLOYEE' ||
-    user?.adminUser ||
-    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
-  );
+  const isEmployee = isPhlebotomistEmployee(user);
   const isFreelancer = !isEmployee;
   
   const [isAvailable, setIsAvailable] = useState(user?.partner?.isAvailable ?? true);
@@ -150,7 +144,12 @@ export default function PhlebotomistHomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+      if (isAvailable) {
+        getCurrentCoordinates().then((coords) => {
+          if (coords) apiService.toggleAvailability(true, coords).catch(() => {});
+        }).catch(() => {});
+      }
+    }, [loadData, isAvailable])
   );
 
   useEffect(() => {

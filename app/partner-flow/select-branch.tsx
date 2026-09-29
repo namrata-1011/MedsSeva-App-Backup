@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, ActivityIndicator, StatusBar,
@@ -6,6 +6,9 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../src/store';
+import { isPhlebotomistEmployee } from '../../src/utils/userUtils';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { apiService } from '../../src/services/api';
 import { showError, showSuccess } from '../../src/store/toastStore';
@@ -23,14 +26,29 @@ interface Branch {
 
 export default function SelectBranchScreen() {
   const router = useRouter();
+  const user = useSelector((s: RootState) => s.auth.user as any);
+  const isEmployee = isPhlebotomistEmployee(user);
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+
+  // If an in-house employee ever enters this screen, immediately auto-forward to deliver-sample
+  useEffect(() => {
+    if (isEmployee && bookingId) {
+      const targetBranchId = user?.branchId || user?.adminUser?.branchId || user?.partner?.branchId;
+      apiService.selectDeliveryBranch(bookingId, targetBranchId || 'auto').catch(() => {});
+      router.replace({
+        pathname: '/partner-flow/deliver-sample',
+        params: { bookingId },
+      } as any);
+    }
+  }, [isEmployee, bookingId]);
+
   const [search, setSearch] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: branches = [], isLoading } = useQuery<Branch[]>({
-    queryKey: ['delivery-branches'],
-    queryFn: () => apiService.getDeliveryBranches(),
+    queryKey: ['delivery-branches', bookingId],
+    queryFn: () => apiService.getDeliveryBranches(bookingId),
   });
 
   const filtered = branches.filter(

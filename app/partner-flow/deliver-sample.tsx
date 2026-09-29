@@ -26,7 +26,12 @@ export default function DeliverSampleScreen() {
   });
 
   const delivery = booking?.sampleDelivery;
-  const branch = delivery?.branch;
+  const branch = delivery?.branch || booking?.branch || (user?.branchName ? {
+    name: user.branchName,
+    city: 'Indore',
+    line1: 'Lab Branch',
+    pincode: '',
+  } : null);
 
   const handleConfirmDelivery = async () => {
     if (!bookingId) return;

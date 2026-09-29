@@ -264,7 +264,10 @@ uploadAvatar: (imageUri: string, mimeType: string, fileName: string) => {
   getPartnerBranchStaff: () => api.get('/partner/branch-staff').then(res => res.data),
   assignPartnerStaff: (bookingId: string, executiveId: string) =>
     api.patch(`/partner/bookings/${bookingId}/assign-staff`, { executiveId }).then(res => res.data),
-  getDeliveryBranches: () => api.get('/partner/delivery-branches').then(res => res.data),
+  getDeliveryBranches: (params?: { bookingId?: string; city?: string } | string) => {
+    const query = typeof params === 'string' ? { bookingId: params } : (params || {});
+    return api.get('/partner/delivery-branches', { params: query }).then(res => res.data);
+  },
   selectDeliveryBranch: (bookingId: string, branchId: string) =>
     api.post(`/partner/bookings/${bookingId}/select-branch`, { branchId }).then(res => res.data),
   confirmBranchDelivery: (bookingId: string) =>

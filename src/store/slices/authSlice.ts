@@ -4,9 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 interface PartnerInfo {
   id: string;
   labName: string;
+  role?: string;
   approvalStatus: string;
   isAvailable: boolean;
   rating: number;
+  commissionRate?: number;
+  branchId?: string | null;
 }
 
 interface User {
@@ -24,6 +27,14 @@ interface User {
   gender?: string;
   bloodGroup?: string;
   partner?: PartnerInfo;
+  isEmployee?: boolean;
+  phlebotomistType?: 'EMPLOYEE' | 'FREELANCER';
+  userType?: string;
+  branchId?: string | null;
+  branchName?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  adminUser?: any;
 }
 
 interface AuthState {

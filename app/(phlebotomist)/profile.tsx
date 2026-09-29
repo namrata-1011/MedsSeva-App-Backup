@@ -20,6 +20,7 @@ import Toast from 'react-native-toast-message';
 import { Modal, Pressable } from 'react-native';
 import { apiService } from '../../src/services/api';
 import { ensurePhotosPermission } from '../../src/utils/imagePicker';
+import { isPhlebotomistEmployee } from '../../src/utils/userUtils';
 
 
 export default function PhlebotomistProfileScreen() {
@@ -27,14 +28,7 @@ export default function PhlebotomistProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
-    user?.isEmployee === true ||
-    user?.phlebotomistType === 'EMPLOYEE' ||
-    user?.userType === 'STAFF' ||
-    user?.userType === 'EMPLOYEE' ||
-    user?.adminUser ||
-    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
-  );
+  const isEmployee = isPhlebotomistEmployee(user);
   const isFreelancer = !isEmployee;
   const [loggingOut, setLoggingOut] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
@@ -49,8 +43,9 @@ export default function PhlebotomistProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       apiService.getMe().then((res: any) => {
-        if (res?.user) {
-          dispatch(updateProfile(res.user));
+        const profileData = res?.user || res;
+        if (profileData && profileData.id) {
+          dispatch(updateProfile(profileData));
         }
       }).catch(() => {});
       if (isFreelancer) {

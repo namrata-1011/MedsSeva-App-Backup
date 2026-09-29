@@ -13,6 +13,7 @@ import { apiService } from '../../src/services/api';
 import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { showSuccess, showError } from '../../src/store/toastStore';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
+import { isPhlebotomistEmployee } from '../../src/utils/userUtils';
 
 interface Booking {
   id: string;
@@ -21,12 +22,12 @@ interface Booking {
   patientMobile?: string;
   scheduledDate: string;
   scheduledSlot: string;
-  paymentStatus: string;
-  status: string;
   collectionAddress?: string;
+  totalPaid?: number;
+  paymentStatus?: string;
   tests: { name: string }[];
-  packages?: { name: string }[];
-  totalPaid: number;
+  status: string;
+  priority?: string;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -45,14 +46,7 @@ export default function PhlebotomistBookingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const user = useSelector((s: RootState) => s.auth.user as any);
-  const isEmployee = user?.userType === 'FREELANCER' ? false : !!(
-    user?.isEmployee === true ||
-    user?.phlebotomistType === 'EMPLOYEE' ||
-    user?.userType === 'STAFF' ||
-    user?.userType === 'EMPLOYEE' ||
-    user?.adminUser ||
-    !!(user?.designation && /phlebotomist|collector|phlebo/i.test(user.designation))
-  );
+  const isEmployee = isPhlebotomistEmployee(user);
   const isFreelancer = !isEmployee;
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -79,7 +73,7 @@ export default function PhlebotomistBookingsScreen() {
     const labels: Record<string, string> = {
       ACCEPTED: 'Start Journey',
       ON_THE_WAY: 'Reached Location',
-      SAMPLE_COLLECTED: 'Select Delivery Branch',
+      SAMPLE_COLLECTED: isEmployee ? 'Deliver to Lab' : 'Select Delivery Branch',
       DELIVERING_TO_BRANCH: 'Confirm Delivery',
     };
     return labels[current] || '';
@@ -104,6 +98,15 @@ export default function PhlebotomistBookingsScreen() {
 
   const handleUpdateStatus = async (booking: Booking) => {
     if (booking.status === 'SAMPLE_COLLECTED') {
+      if (isEmployee) {
+        const targetBranchId = user?.branchId || user?.adminUser?.branchId || user?.partner?.branchId;
+        apiService.selectDeliveryBranch(booking.id, targetBranchId || 'auto').catch(() => {});
+        router.push({
+          pathname: '/partner-flow/deliver-sample',
+          params: { bookingId: booking.id },
+        } as any);
+        return;
+      }
       router.push({
         pathname: '/partner-flow/select-branch',
         params: { bookingId: booking.id },

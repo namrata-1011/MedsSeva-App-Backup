@@ -11,11 +11,17 @@ import { COLORS, SHADOWS } from '../../src/theme/theme';
 import { apiService } from '../../src/services/api';
 import { showError, showSuccess } from '../../src/store/toastStore';
 import { ConfirmSheet } from '../../src/components/ConfirmSheet';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../src/store';
+import { isPhlebotomistEmployee } from '../../src/utils/userUtils';
 
 type Step = 'otp' | 'payment' | 'upi_waiting' | 'done' | 'sample_collected';
 
 export default function CollectScreen() {
   const router = useRouter();
+  const user = useSelector((s: RootState) => s.auth.user as any);
+  const isEmployee = isPhlebotomistEmployee(user);
+  const [isDelivering, setIsDelivering] = useState(false);
   const params = useLocalSearchParams<{ bookingId?: string; id?: string; paymentStatus?: string; otpVerified?: string }>();
   const bookingId = params.bookingId || params.id || '';
   const paymentStatus = params.paymentStatus || '';
@@ -198,7 +204,31 @@ export default function CollectScreen() {
     }
   };
 
-  const handleDeliverToLab = () => {
+  const handleDeliverToLab = async () => {
+    // If the phlebotomist is an in-house employee, their branch is fixed (e.g. Vaishali lab)
+    if (isEmployee) {
+      setIsDelivering(true);
+      try {
+        const targetBranchId = user?.branchId || user?.adminUser?.branchId || user?.partner?.branchId;
+        if (targetBranchId) {
+          await apiService.selectDeliveryBranch(bookingId, targetBranchId).catch(() => {});
+        } else {
+          await apiService.selectDeliveryBranch(bookingId, 'auto').catch(() => {});
+        }
+      } catch (e) {
+        console.warn('Auto branch assignment warning:', e);
+      } finally {
+        setIsDelivering(false);
+      }
+      showSuccess(user?.branchName ? `Delivering to ${user.branchName}` : 'Heading to lab for delivery');
+      router.push({
+        pathname: '/partner-flow/deliver-sample',
+        params: { bookingId },
+      } as any);
+      return;
+    }
+
+    // Freelance phlebotomists choose a branch within their city
     router.push({
       pathname: '/partner-flow/select-branch',
       params: { bookingId },
@@ -422,8 +452,10 @@ if (step === 'sample_collected') {
             <MaterialCommunityIcons name="test-tube" size={40} color="#7C3AED" />
           </View>
           <Text style={styles.stepTitle}>Sample Collected</Text>
-       <Text style={styles.stepSubtitle}>
-            Sample collected successfully. Select the MedSeva branch you will deliver it to.
+          <Text style={styles.stepSubtitle}>
+            {isEmployee
+              ? `Sample collected successfully. Deliver it to ${user?.branchName || 'your branch lab'}.`
+              : 'Sample collected successfully. Select the MedSeva branch you will deliver it to.'}
           </Text>
 
           <View style={styles.progressRow}>
@@ -448,13 +480,29 @@ if (step === 'sample_collected') {
           <View style={styles.doneCard}>
             <MaterialCommunityIcons name="information-outline" size={20} color="#7C3AED" />
             <Text style={[styles.doneCardText, { color: '#7C3AED' }]}>
-              Once you have delivered the sample to the lab, tap the button below to complete this booking.
+              {isEmployee
+                ? `Deliver the collected sample to ${user?.branchName || 'the lab'} to complete this booking.`
+                : 'Once you have delivered the sample to the lab, tap the button below to complete this booking.'}
             </Text>
           </View>
 
-<TouchableOpacity style={[styles.primaryBtn, { backgroundColor: '#7C3AED' }]} onPress={handleDeliverToLab}>
-            <MaterialCommunityIcons name="hospital-building" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.primaryBtnText}>Select Delivery Branch</Text>
+          <TouchableOpacity
+            style={[styles.primaryBtn, { backgroundColor: '#7C3AED' }, isDelivering && { opacity: 0.8 }]}
+            onPress={handleDeliverToLab}
+            disabled={isDelivering}
+          >
+            {isDelivering ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="hospital-building" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.primaryBtnText}>
+                  {isEmployee
+                    ? (user?.branchName ? `Deliver to ${user.branchName}` : 'Deliver to Lab')
+                    : 'Select Delivery Branch'}
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </ScreenWrapper>
       </View>
